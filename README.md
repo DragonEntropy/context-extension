@@ -10,16 +10,29 @@ pip install -r requirements.txt
 python
 from datasets import load_dataset
 dataset = load_dataset('THUDM/LongBench-v2', split='train')
+```
 
 ### 3. Llama to huggingface
+```
 python torch_to_hf.py \
   --input_dir ~/.llama/checkpoints/Llama-2-7b/ \
   --model_size 7B \
   --output_dir ~/honours/models/llama-2-7b-hf
+```
 
 ### 4. Start model
-vllm serve ~/.llama/checkpoints/Llama-2-7b/
+In the LongBench folder:
+```
+vllm serve ../../models/llama-2-7b-hf \
+  --max-model-len 4096 \
+  --gpu-memory-utilization 0.98 \
+  --swap-space 16
+```
 
+### 5. Start inference
+```
+python3 pred.py --model ../../models/llama-2-7b-hf
+```
 
 ## Info
 

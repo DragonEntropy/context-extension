@@ -5,3 +5,4 @@ sentencepiece
 vllm
 transformers
 datasets
+accelerate
