@@ -24,9 +24,8 @@ python torch_to_hf.py \
 In the LongBench folder:
 ```
 vllm serve ../../models/llama-2-7b-hf \
-  --max-model-len 4096 \
-  --gpu-memory-utilization 0.98 \
-  --swap-space 16
+  --max-model-len 2048 \
+  --gpu-memory-utilization 0.98
 ```
 
 ### 5. Start inference
