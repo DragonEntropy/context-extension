@@ -1,7 +1,7 @@
 [submodule "LongBench"]
   path = LongBench
-  url = https://github.com/THUDM/LongBench.git
+  url = https://github.com/DragonEntropy/LongBench.git
 
 [submodule "llama"]
   path = llama
-  url = https://github.com/meta-llama/llama.git
+  url = https://github.com/DragonEntropy/llama.git
