@@ -12,19 +12,24 @@ from datasets import load_dataset
 dataset = load_dataset('THUDM/LongBench-v2', split='train')
 ```
 
+### 2.5 Download git lfs if required
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
+sudo apt update
+sudo apt install git-lfs
+
 ### 3. Llama to huggingface
 ```
-python torch_to_hf.py \
-  --input_dir ~/.llama/checkpoints/Llama-2-7b/ \
+python context-extension/torch_to_hf.py \
+  --input_dir models/Llama-2-7b/ \
   --model_size 7B \
-  --output_dir ~/honours/models/llama-2-7b-hf
+  --output_dir models/llama-2-7b-hf
 ```
 
 ### 4. Start model
 In the LongBench folder:
 ```
 vllm serve ../../models/llama-2-7b-hf \
-  --max-model-len 2048 \
+  --max-model-len 65536 \
   --gpu-memory-utilization 0.98
 ```
 
