@@ -5,6 +5,7 @@
 [submodule "llama"]
   path = llama
   url = https://github.com/DragonEntropy/llama.git
+
 [submodule "transformers"]
 	path = transformers
-	url = .\\transformers\\
+	url = https://github.com/DragonEntropy/transformers.git
