@@ -588,7 +588,7 @@ def main():
     )
 
     if args.model_size != "tokenizer_only":
-        write_model(
+        write_model(    
             model_path=args.output_dir,
             input_base_path=args.input_dir,
             model_size=args.model_size,

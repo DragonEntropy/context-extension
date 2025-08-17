@@ -29,7 +29,7 @@ python context-extension/torch_to_hf.py \
 In the LongBench folder:
 ```
 vllm serve ../../models/llama-2-7b-hf \
-  --max-model-len 65536 \
+  --max-model-len 68000 \
   --gpu-memory-utilization 0.98
 ```
 
