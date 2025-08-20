@@ -25,7 +25,7 @@ class EarlyStoppingCallback(TrainerCallback):
             if self.counter >= self.patience:
                 print(f"Early stopping triggered at step {self.eval_step} with eval loss: {score}")
                 control.should_training_stop = True
-        eval_step += 1
+        self.eval_step += 1
 
 
 def tokenise(batch, tokeniser):
@@ -56,7 +56,7 @@ def main():
         mlm=False,
     )
 
-    model = AutoModelForCausalLM.from_pretrained(model_path, torch_dtype=torch.float16)
+    model = AutoModelForCausalLM.from_pretrained(model_path)
     model.config.pad_token_id = tokeniser.eos_token_id
 
     training_args = TrainingArguments(
