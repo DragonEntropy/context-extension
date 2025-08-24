@@ -1,19 +1,23 @@
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM, DataCollatorForLanguageModeling, Trainer, TrainingArguments, TrainerCallback
+from transformers import (
+    AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig,
+    DataCollatorForLanguageModeling,
+    Trainer, TrainingArguments, TrainerCallback
+)
 import math
-import torch
+from peft import LoraConfig, TaskType, get_peft_model
 
 model_path = "../../models/llama-2-7b-hf"
 
 
 class EarlyStoppingCallback(TrainerCallback):
-    def __init__(self, patience=3):
+    def __init__(self, patience=1):
         self.patience = patience
         self.min_loss = math.inf
         self.counter = 0
         self.eval_step = 0
 
-    def on_step_end(self, args, state, control, metrics, **kwargs):
+    def on_evaluate(self, args, state, control, metrics, **kwargs):
         score = metrics.get("eval_loss", math.inf)
         print(f"Eval step {self.eval_step} - Current eval loss: {score}")
 
@@ -26,6 +30,7 @@ class EarlyStoppingCallback(TrainerCallback):
                 print(f"Early stopping triggered at step {self.eval_step} with eval loss: {score}")
                 control.should_training_stop = True
         self.eval_step += 1
+        return control
 
 
 def tokenise(batch, tokeniser):
@@ -51,13 +56,25 @@ def main():
     eval_dataset = dataset.take(1000)
     train_dataset = dataset.skip(1000)
 
+    quantisation_config = BitsAndBytesConfig(load_in_8bit=True)
+
+    lora_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        inference_mode=False
+    )
+
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokeniser,
         mlm=False,
     )
 
-    model = AutoModelForCausalLM.from_pretrained(model_path)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        device_map="auto",
+        quantization_config=quantisation_config
+    )
     model.config.pad_token_id = tokeniser.eos_token_id
+    model = get_peft_model(model, lora_config)
 
     training_args = TrainingArguments(
         output_dir=f"{model_path}_finetuned",
@@ -70,8 +87,7 @@ def main():
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         max_steps = 1000,
-        remove_unused_columns=False,
-        fp16=True
+        remove_unused_columns=False
     )
 
     trainer = Trainer(

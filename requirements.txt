@@ -1,4 +1,4 @@
-git+https://github.com/DragonEntropy/transformers.git@v4.53-release#egg=transformers[sentencepiece]
+git+https://github.com/DragonEntropy/transformers.git@v4.53-release#egg=transformers[sentencepiece,bitsandbytes]
 torch
 fairscale
 fire
@@ -6,3 +6,5 @@ sentencepiece
 vllm
 datasets
 accelerate
+bitsandbytes
+peft

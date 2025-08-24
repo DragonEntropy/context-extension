@@ -38,6 +38,11 @@ vllm serve ../../models/llama-2-custom \
 python3 pred.py --model ../../models/llama-2-7b-hf
 ```
 
+### 6. Training (in background)
+```
+nohup python finetuning.py > output.log 2>&1 &
+```
+
 ## Info
 
 Longbench data entries follow the format:
