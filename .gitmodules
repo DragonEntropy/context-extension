@@ -2,10 +2,3 @@
   path = LongBench
   url = https://github.com/DragonEntropy/LongBench.git
 
-[submodule "llama"]
-  path = llama
-  url = https://github.com/DragonEntropy/llama.git
-
-[submodule "transformers"]
-	path = transformers
-	url = https://github.com/DragonEntropy/transformers.git

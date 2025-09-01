@@ -10,7 +10,14 @@ pip install -r requirements.txt
 python
 from datasets import load_dataset
 dataset = load_dataset('THUDM/LongBench-v2', split='train', cache_dir='datasets')
-dataset = load_dataset('yanbingzheng/LongBench', split='train', cache_dir='datasets')
+
+# Requires downgrading to datasets 2.19.1 or earlier 
+datasets = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
+  "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
+  "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+
+for dataset in datasets:
+    data = load_dataset('THUDM/LongBench', dataset, split='test', cache_dir='datasets')
 ```
 
 ### 2.5 Download git lfs if required
