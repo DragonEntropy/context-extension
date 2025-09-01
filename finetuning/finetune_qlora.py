@@ -1,14 +1,13 @@
 from datasets import load_dataset
 from transformers import (
-    AutoTokenizer, AutoModelForCausalLM,
+    AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig,
     DataCollatorForLanguageModeling,
     Trainer, TrainingArguments, TrainerCallback
 )
 import math
-from BitsAndBytesConfig.optim import AdamW8bit
+from peft import LoraConfig, TaskType, get_peft_model
 
 model_path = "../../models/llama-2-7b-hf"
-model_length = 2**(18 - 4)
 
 
 class EarlyStoppingCallback(TrainerCallback):
@@ -48,7 +47,7 @@ def tokenise(batch, tokeniser):
 def main():
     tokeniser = AutoTokenizer.from_pretrained(model_path)
     tokeniser.pad_token = tokeniser.eos_token
-    tokeniser.model_max_length = model_length
+    tokeniser.model_max_length = 4096
 
     # Dataset is being streamed due to storage constraints
     dataset = load_dataset("common-pile/wikimedia_filtered", split="train", streaming=True)
@@ -56,6 +55,13 @@ def main():
     dataset = dataset.map(lambda data: tokenise(data, tokeniser), remove_columns=fields)
     eval_dataset = dataset.take(1000)
     train_dataset = dataset.skip(1000)
+
+    quantisation_config = BitsAndBytesConfig(load_in_8bit=True)
+
+    lora_config = LoraConfig(
+        task_type=TaskType.CAUSAL_LM,
+        inference_mode=False
+    )
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokeniser,
@@ -68,11 +74,7 @@ def main():
         quantization_config=quantisation_config
     )
     model.config.pad_token_id = tokeniser.eos_token_id
-    model.gradient_checkpointing_enable()
-
-    # Adam 8 bit
-    optimizer = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32, offload_optimizer=True)
-    scheduler = None
+    model = get_peft_model(model, lora_config)
 
     training_args = TrainingArguments(
         output_dir=f"{model_path}_finetuned",
@@ -95,8 +97,7 @@ def main():
         eval_dataset=eval_dataset,
         tokenizer=tokeniser,
         data_collator=data_collator,
-        callbacks=[EarlyStoppingCallback(patience=2)],
-        optimizer=(optimiser, scheduler)
+        callbacks=[EarlyStoppingCallback(patience=3)]
     )
 
     trainer.train()

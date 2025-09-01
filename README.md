@@ -9,13 +9,14 @@ pip install -r requirements.txt
 ```
 python
 from datasets import load_dataset
-dataset = load_dataset('THUDM/LongBench-v2', split='train')
+dataset = load_dataset('THUDM/LongBench-v2', split='train', cache_dir='datasets')
+dataset = load_dataset('yanbingzheng/LongBench', split='train', cache_dir='datasets')
 ```
 
 ### 2.5 Download git lfs if required
-curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | sudo bash
-sudo apt update
-sudo apt install git-lfs
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
+apt update
+apt install git-lfs
 
 ### 3. Llama to huggingface
 ```
@@ -41,7 +42,7 @@ python3 pred.py --model ../../models/llama-2-7b-hf
 
 ### 6. Training (in background)
 ```
-nohup python finetuning.py > output.log 2>&1 &
+nohup python finetune.py > output.log 2>&1 &
 ```
 
 ### 7. awq quantisation (for vllm compatibility)

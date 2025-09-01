@@ -1,4 +1,4 @@
-git+https://github.com/DragonEntropy/transformers.git@v4.53-release#egg=transformers[sentencepiece,bitsandbytes]
+transformers
 torch
 fairscale
 fire
@@ -7,5 +7,4 @@ vllm
 datasets
 accelerate
 bitsandbytes
-peft
 llmcompressor
