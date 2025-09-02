@@ -1,4 +1,4 @@
 [submodule "LongBench"]
-  path = LongBench
+	path = src/LongBench
   url = https://github.com/DragonEntropy/LongBench.git
 

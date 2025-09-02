@@ -33,18 +33,19 @@ python context-extension/torch_to_hf.py \
   --output_dir models/llama-2-7b-hf
 ```
 
-### 4. Start model
+### 4. Start model (vllm for LongBench v2)
 In the LongBench folder:
 ```
-vllm serve ../../models/llama-2-7b-hf \
-  --max-model-len 68200 \
+vllm serve ../../../models/llama-2-7b-hf \
+  --max-model-len 16384 \
   --gpu-memory-utilization 0.98 \
   --quantization bitsandbytes
 ```
 
 ### 5. Start inference
 ```
-python3 pred.py --model ../../models/llama-2-7b-hf
+python3 pred.py --model llama2-7b
+python3 pred.py --model llama2-7b -l 40
 ```
 
 ### 6. Training (in background)
@@ -57,7 +58,7 @@ python3 -m awq.quantize \
   --model_path ../../models/llama-2-7b-hf \
   --quant_path ../../models/llama-2-custom \
   --w_bit 8 \
-  --q_group_size 128 \
+  --q_group_size 128 \  
   --use_sym
 
 

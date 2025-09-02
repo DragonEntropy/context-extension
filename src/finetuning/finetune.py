@@ -64,8 +64,7 @@ def main():
 
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        device_map="auto",
-        quantization_config=quantisation_config
+        device_map="auto"
     )
     model.config.pad_token_id = tokeniser.eos_token_id
     model.gradient_checkpointing_enable()
