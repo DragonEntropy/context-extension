@@ -5,6 +5,25 @@
 pip install -r requirements.txt
 ```
 
+## Setup (old)
+
+### 1. Install requirements.txt
+```
+pip install -r requirements.txt
+```
+
+### 1.5 Download git lfs if required
+```
+curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
+apt update
+apt install git-lfs
+```
+
+### 2. Download llama2-7b model into models folder
+Accessible via:
+- Huggingface: https://huggingface.co/meta-llama/Llama-2-7b
+- META website: https://www.llama.com/llama-downloads
+
 ### 2. Download benchmark
 ```
 python
@@ -27,7 +46,7 @@ apt install git-lfs
 
 ### 3. Llama to huggingface
 ```
-python context-extension/torch_to_hf.py \
+python src/torch_to_hf.py \
   --input_dir models/Llama-2-7b/ \
   --model_size 7B \
   --output_dir models/llama-2-7b-hf
@@ -44,13 +63,13 @@ vllm serve ../../../models/llama-2-7b-hf \
 
 ### 5. Start inference
 ```
-python3 pred.py --model llama2-7b
-python3 pred.py --model llama2-7b -l 40
+python3 src/LongBench/LongBench/pred.py --model llama2-7b
+python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40
 ```
 
 ### 6. Training (in background)
 ```
-nohup python finetune.py > output.log 2>&1 &
+nohup python3 src/finetuning/finetune.py > logs/finetune_output.log 2>&1 &
 ```
 
 ### 7. awq quantisation (for vllm compatibility)

@@ -5,9 +5,9 @@ from transformers import (
     Trainer, TrainingArguments, TrainerCallback
 )
 import math
-from BitsAndBytesConfig.optim import AdamW8bit
+from bitsandbytes.optim import AdamW8bit
 
-model_path = "../../models/llama-2-7b-hf"
+model_path = "models/llama-2-7b-hf"
 model_length = 2**(18 - 4)
 
 
@@ -51,11 +51,11 @@ def main():
     tokeniser.model_max_length = model_length
 
     # Dataset is being streamed due to storage constraints
-    dataset = load_dataset("common-pile/wikimedia_filtered", split="train", streaming=True)
+    dataset = load_dataset("common-pile/project_gutenberg_filtered", split="train", streaming=True)
     fields = list(next(iter(dataset)).keys())
     dataset = dataset.map(lambda data: tokenise(data, tokeniser), remove_columns=fields)
-    eval_dataset = dataset.take(1000)
-    train_dataset = dataset.skip(1000)
+    eval_dataset = dataset.take(25)
+    train_dataset = dataset.skip(25)
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokeniser,
@@ -70,17 +70,16 @@ def main():
     model.gradient_checkpointing_enable()
 
     # Adam 8 bit
-    optimizer = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32, offload_optimizer=True)
+    optimiser = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32)
     scheduler = None
 
     training_args = TrainingArguments(
         output_dir=f"{model_path}_finetuned",
         eval_strategy="steps",
-        save_strategy="steps",  
-        eval_steps=10,
-        save_steps=10,
+        save_strategy="no",  
+        eval_steps=100,
         save_total_limit=2,
-        logging_steps=10,
+        logging_steps=100,
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         max_steps = 1000,
@@ -95,7 +94,7 @@ def main():
         tokenizer=tokeniser,
         data_collator=data_collator,
         callbacks=[EarlyStoppingCallback(patience=2)],
-        optimizer=(optimiser, scheduler)
+        optimizers=(optimiser, scheduler)
     )
 
     trainer.train()
