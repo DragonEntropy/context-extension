@@ -6,6 +6,7 @@ from transformers import (
 )
 import math
 from BitsAndBytesConfig.optim import AdamW8bit
+import argparse
 
 model_path = "../../models/llama-2-7b-hf"
 model_length = 2**(18 - 4)
