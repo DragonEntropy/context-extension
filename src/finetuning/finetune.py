@@ -5,10 +5,14 @@ from transformers import (
     Trainer, TrainingArguments, TrainerCallback
 )
 import math
+<<<<<<< HEAD:finetuning/finetune.py
 from BitsAndBytesConfig.optim import AdamW8bit
 import argparse
+=======
+from bitsandbytes.optim import AdamW8bit
+>>>>>>> 56524d09e64e4cebc7bba4af52618a8ac27e9d54:src/finetuning/finetune.py
 
-model_path = "../../models/llama-2-7b-hf"
+model_path = "models/llama-2-7b-hf"
 model_length = 2**(18 - 4)
 
 
@@ -21,7 +25,7 @@ class EarlyStoppingCallback(TrainerCallback):
 
     def on_evaluate(self, args, state, control, metrics, **kwargs):
         score = metrics.get("eval_loss", math.inf)
-        print(f"Eval step {self.eval_step} - Current eval loss: {score}")
+        print(f"Eval step {self.eval_step} - Current eval loss: {score}", flush=True)
 
         if score < self.min_loss:
             self.min_loss = score
@@ -29,7 +33,7 @@ class EarlyStoppingCallback(TrainerCallback):
         else:
             self.counter += 1
             if self.counter >= self.patience:
-                print(f"Early stopping triggered at step {self.eval_step} with eval loss: {score}")
+                print(f"Early stopping triggered at step {self.eval_step} with eval loss: {score}", flush=True)
                 control.should_training_stop = True
         self.eval_step += 1
         return control
@@ -52,11 +56,11 @@ def main():
     tokeniser.model_max_length = model_length
 
     # Dataset is being streamed due to storage constraints
-    dataset = load_dataset("common-pile/wikimedia_filtered", split="train", streaming=True)
+    dataset = load_dataset("common-pile/project_gutenberg_filtered", split="train", streaming=True)
     fields = list(next(iter(dataset)).keys())
     dataset = dataset.map(lambda data: tokenise(data, tokeniser), remove_columns=fields)
-    eval_dataset = dataset.take(1000)
-    train_dataset = dataset.skip(1000)
+    eval_dataset = dataset.take(25)
+    train_dataset = dataset.skip(25)
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokeniser,
@@ -65,24 +69,23 @@ def main():
 
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        device_map="auto",
-        quantization_config=quantisation_config
+        device_map="auto"
     )
     model.config.pad_token_id = tokeniser.eos_token_id
     model.gradient_checkpointing_enable()
 
     # Adam 8 bit
-    optimizer = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32, offload_optimizer=True)
+    optimiser = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32)
     scheduler = None
 
     training_args = TrainingArguments(
         output_dir=f"{model_path}_finetuned",
         eval_strategy="steps",
-        save_strategy="steps",  
-        eval_steps=10,
-        save_steps=10,
-        save_total_limit=2,
-        logging_steps=10,
+        save_strategy="steps",
+        save_steps=100,
+        eval_steps=100,
+        save_total_limit=1,
+        logging_steps=100,
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         max_steps = 1000,
@@ -96,8 +99,8 @@ def main():
         eval_dataset=eval_dataset,
         tokenizer=tokeniser,
         data_collator=data_collator,
-        callbacks=[EarlyStoppingCallback(patience=2)],
-        optimizer=(optimiser, scheduler)
+        callbacks=[EarlyStoppingCallback(patience=1)],
+        optimizers=(optimiser, scheduler)
     )
 
     trainer.train()
