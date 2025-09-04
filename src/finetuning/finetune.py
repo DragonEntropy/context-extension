@@ -20,7 +20,7 @@ class EarlyStoppingCallback(TrainerCallback):
 
     def on_evaluate(self, args, state, control, metrics, **kwargs):
         score = metrics.get("eval_loss", math.inf)
-        print(f"Eval step {self.eval_step} - Current eval loss: {score}")
+        print(f"Eval step {self.eval_step} - Current eval loss: {score}", flush=True)
 
         if score < self.min_loss:
             self.min_loss = score
@@ -28,7 +28,7 @@ class EarlyStoppingCallback(TrainerCallback):
         else:
             self.counter += 1
             if self.counter >= self.patience:
-                print(f"Early stopping triggered at step {self.eval_step} with eval loss: {score}")
+                print(f"Early stopping triggered at step {self.eval_step} with eval loss: {score}", flush=True)
                 control.should_training_stop = True
         self.eval_step += 1
         return control
@@ -76,9 +76,10 @@ def main():
     training_args = TrainingArguments(
         output_dir=f"{model_path}_finetuned",
         eval_strategy="steps",
-        save_strategy="no",  
+        save_strategy="steps",
+        save_steps=100,
         eval_steps=100,
-        save_total_limit=2,
+        save_total_limit=1,
         logging_steps=100,
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
@@ -93,7 +94,7 @@ def main():
         eval_dataset=eval_dataset,
         tokenizer=tokeniser,
         data_collator=data_collator,
-        callbacks=[EarlyStoppingCallback(patience=2)],
+        callbacks=[EarlyStoppingCallback(patience=1)],
         optimizers=(optimiser, scheduler)
     )
 
