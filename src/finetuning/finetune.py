@@ -5,14 +5,9 @@ from transformers import (
     Trainer, TrainingArguments, TrainerCallback
 )
 import math
-<<<<<<< HEAD:finetuning/finetune.py
-from BitsAndBytesConfig.optim import AdamW8bit
-import argparse
-=======
 from bitsandbytes.optim import AdamW8bit
->>>>>>> 56524d09e64e4cebc7bba4af52618a8ac27e9d54:src/finetuning/finetune.py
+from argparse import ArgumentParser
 
-model_path = "models/llama-2-7b-hf"
 model_length = 2**(18 - 4)
 
 
@@ -51,7 +46,15 @@ def tokenise(batch, tokeniser):
 
 
 def main():
-    tokeniser = AutoTokenizer.from_pretrained(model_path)
+    argparser = ArgumentParser()
+    argparser.add_argument("m", "model_path", type=str, default="models/llama-2-7b-hf")
+    argparser.add_argument("s", "start_index", type=int, default=0)
+    args = argparser.parse_args()
+    input_model_path = args.model_path
+    output_model_path = f"{args.model_path}_finetuned"
+    start_index = args.start_index
+
+    tokeniser = AutoTokenizer.from_pretrained(input_model_path)
     tokeniser.pad_token = tokeniser.eos_token
     tokeniser.model_max_length = model_length
 
@@ -60,7 +63,7 @@ def main():
     fields = list(next(iter(dataset)).keys())
     dataset = dataset.map(lambda data: tokenise(data, tokeniser), remove_columns=fields)
     eval_dataset = dataset.take(25)
-    train_dataset = dataset.skip(25)
+    train_dataset = dataset.skip(25 + start_index)
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokeniser,
@@ -68,7 +71,7 @@ def main():
     )
 
     model = AutoModelForCausalLM.from_pretrained(
-        model_path,
+        input_model_path,
         device_map="auto"
     )
     model.config.pad_token_id = tokeniser.eos_token_id
@@ -79,7 +82,7 @@ def main():
     scheduler = None
 
     training_args = TrainingArguments(
-        output_dir=f"{model_path}_finetuned",
+        output_dir=output_model_path,
         eval_strategy="steps",
         save_strategy="steps",
         save_steps=100,
@@ -88,7 +91,7 @@ def main():
         logging_steps=100,
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
-        max_steps = 1000,
+        max_steps=1000 - start_index,
         remove_unused_columns=False
     )
 
