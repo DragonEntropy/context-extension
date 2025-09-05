@@ -47,8 +47,8 @@ def tokenise(batch, tokeniser):
 
 def main():
     argparser = ArgumentParser()
-    argparser.add_argument("m", "model_path", type=str, default="models/llama-2-7b-hf")
-    argparser.add_argument("s", "start_index", type=int, default=0)
+    argparser.add_argument("-m", "--model_path", type=str, default="models/llama-2-7b-hf")
+    argparser.add_argument("-s", "--start_index", type=int, default=0)
     args = argparser.parse_args()
     input_model_path = args.model_path
     output_model_path = f"{args.model_path}_finetuned"
