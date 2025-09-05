@@ -64,7 +64,7 @@ vllm serve ../../../models/llama-2-7b-hf \
 ### 5. Start inference
 ```
 python3 src/LongBench/LongBench/pred.py --model llama2-7b
-python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40
+nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -f > logs/eval_output.log 2>&1 &
 ```
 
 ### 6. Training (in background)
