@@ -25,7 +25,7 @@ class LlamaAttentionALiBi(LlamaAttention):
         super().__init__(config, layer_idx)
         self.register_buffer(
             "slopes",
-            torch.tensor(self.precompute_slopes(config.num_attention_heads), dtype=torch.float32),
+            self.precompute_slopes(config.num_attention_heads),
             persistent=False,
         )
 
@@ -41,7 +41,7 @@ class LlamaAttentionALiBi(LlamaAttention):
 
     def precompute_slopes(num_heads):
         # Calculates slops for each attention head
-        return [LlamaAttentionALiBi.slope_formula(i, num_heads) for i in range(num_heads)]
+        return torch.tensor([LlamaAttentionALiBi.slope_formula(i, num_heads) for i in range(num_heads)])
 
     def calculate_alibi(slopes, query_len, key_len):
         device = slopes.device
@@ -121,7 +121,7 @@ class LlamaAttentionALiBi(LlamaAttention):
         if self.config.alibi:
             # ALiBi application to attention
             attention_interface: Callable = LlamaAttentionALiBi.alibi_attention_forward
-            alibi = LlamaAttentionALiBi.calculate_alibi(self.num_heads, self.slopes, query_len, key_len)
+            alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len)
         else:
             attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 

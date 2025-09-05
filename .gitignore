@@ -2,3 +2,4 @@ models/*
 env/
 datasets/*
 logs/
+*__pycache__*
