@@ -69,7 +69,7 @@ nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -f > logs/
 
 ### 6. Training (in background)
 ```
-nohup python3 src/finetuning/finetune.py > logs/finetune_output.log 2>&1 &
+nohup python3 src/finetuning/finetune.py > logs/finetune_output_yarn.log 2>&1 &
 ```
 
 ### 7. awq quantisation (for vllm compatibility)
@@ -98,3 +98,5 @@ json
     "context": "The long context required for the task, such as documents, books, code repositories, etc."
 }
 ```
+
+pscp -r -P 18574 -i D:\Documents\Keys\pod-key-public.ssh root@38.128.232.109:/workspace/context-extension/llama-2-7b-hf_finetuned ~/Downloads

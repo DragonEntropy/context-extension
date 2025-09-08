@@ -102,7 +102,7 @@ def main():
         eval_dataset=eval_dataset,
         tokenizer=tokeniser,
         data_collator=data_collator,
-        callbacks=[EarlyStoppingCallback(patience=1)],
+        callbacks=[EarlyStoppingCallback(patience=3)],
         optimizers=(optimiser, scheduler)
     )
 
