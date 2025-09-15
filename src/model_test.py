@@ -8,6 +8,7 @@ from alterations.FractionalRoPE import LlamaForCausalFractionalRoPE, LlamaConfig
 def main():
     argparser = argparse.ArgumentParser()
     argparser.add_argument("-m", "--model", type=str, default="models/llama-2-7b-hf")
+    argparser.add_argument("-f", "--file_mode", action="store_true")
     args = argparser.parse_args()
 
     model_path = args.model
@@ -26,20 +27,36 @@ def main():
     # model = AutoModelForCausalLM.from_pretrained(path, local_files_only=True).to(device)
     tokenizer.pad_token = tokenizer.eos_token
 
-    prompt = input("Enter your prompt: ")
-    while prompt:
-        line = input()
-        while line:
-            prompt = f"{prompt}\n{line}"
-            line = input(line)
-        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-        outputs = model.generate(**inputs, max_new_tokens=100)[0, inputs["input_ids"].shape[1]:]
-        true_output = tokenizer.decode(outputs, skip_special_tokens=True)
-        
-        print(true_output)
-        print(inputs["input_ids"].shape[1])
-        print(outputs.shape)
+    if args.file_mode:
+        path = input("Enter file path: ")
+        while path:
+            try:
+                with open(path, 'r') as src:
+                    prompt = src.read()
+                    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+                    print(inputs["input_ids"].shape[1])
+                    outputs = model.generate(**inputs, max_new_tokens=100)[0, inputs["input_ids"].shape[1]:]
+                    true_output = tokenizer.decode(outputs, skip_special_tokens=True)
+
+                    print(true_output)
+            except FileNotFoundError:
+                pass
+            path = input("Enter file path: ")
+    else:
         prompt = input("Enter your prompt: ")
+        while prompt:
+            line = input()
+            while line:
+                prompt = f"{prompt}\n{line}"
+                line = input()
+            print(f"Prompt length: {len(prompt.split(' '))}")
+            inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+            outputs = model.generate(**inputs, max_new_tokens=100)[0, inputs["input_ids"].shape[1]:]
+            true_output = tokenizer.decode(outputs, skip_special_tokens=True)
+            
+            print(inputs["input_ids"].shape[1])
+            print(true_output)
+            prompt = input("Enter your prompt: ")
 
 if __name__ == "__main__":
     main()

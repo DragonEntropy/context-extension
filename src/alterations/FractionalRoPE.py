@@ -11,6 +11,7 @@ from transformers.models.llama.modeling_llama import apply_rotary_pos_emb, eager
 from transformers.utils.generic import TransformersKwargs
 
 
+
 class LlamaConfigFractionalRoPE(LlamaConfig):
     def __init__(self, fractional=True, alpha=1, **kwargs):
         super().__init__(**kwargs)
@@ -22,25 +23,52 @@ class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
     def __init__(self, config: LlamaConfig, device=None, alpha=1, L=16384, l=2048):
         # Fractional RoPE works with any variant of RoPE that doesn't mess with position ids.
         super().__init__(config, device=device)
+        self.l = l
+        self.L = L
         self.alpha = alpha
         self.beta = math.pow(l, -alpha) - math.pow(L, -alpha)
 
+        # Override inv_freq
+        self.inv_freq = None
+        self.precompute_angles(device)
+
+    def precompute_angles(self, device):
+        dim = self.config.head_dim
+        base = self.config.rope_theta
+        max_len = self.config.max_position_embeddings
+
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2, dtype=torch.int64).to(device=device, dtype=torch.float) / dim)).unsqueeze(0)
+        rel_pos_ids = torch.arange(-max_len + 1, max_len).to(device=device, dtype=torch.float)
+        scaled_pos_ids = self.fractional_function(rel_pos_ids)
+
+        angles = scaled_pos_ids.unsqueeze(1) @ inv_freq.unsqueeze(0)
+        emb = torch.cat((angles, angles), dim=-1)
+        cos_cache = emb.cos()
+        sin_cache = emb.sin()
+        self.register_buffer("cos_cache", cos_cache)
+        self.register_buffer("sin_cache", sin_cache)
+
     def fractional_function(self, x):
+        # return torch.clamp(x, max=self.l)
+        if self.alpha == 0:
+            return x * self.l / self.L
         return x / torch.pow(1 + self.beta * torch.pow(x, self.alpha), 1 / self.alpha)
 
     @torch.no_grad()
     def forward(self, x, position_ids):
-        inv_freq_expanded = self.inv_freq[None, :, None].float().expand(position_ids.shape[0], -1, 1).to(x.device)
-
-        # Key change: Rescale the position ids
-        position_ids_expanded = self.fractional_function(position_ids[:, None, :].float())
 
         device_type = x.device.type if isinstance(x.device.type, str) and x.device.type != "mps" else "cpu"
         with torch.autocast(device_type=device_type, enabled=False):
-            freqs = (inv_freq_expanded.float() @ position_ids_expanded.float()).transpose(1, 2)
-            emb = torch.cat((freqs, freqs), dim=-1)
-            cos = emb.cos() * self.attention_scaling
-            sin = emb.sin() * self.attention_scaling
+            max_len = self.config.max_position_embeddings
+
+            if position_ids.dim() > 1:
+                position_ids = position_ids[0]
+
+            # Position id 0 is at max_len - 1 in the cache
+            indices = (position_ids +  max_len - 1).clamp(0, 2 * max_len - 2)
+
+            cos = self.cos_cache[:, indices, :]
+            sin = self.sin_cache[:, indices, :]
 
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
@@ -99,6 +127,6 @@ class LlamaForCausalFractionalRoPE(LlamaForCausalLM):
     def __init__(self, config: LlamaConfigFractionalRoPE):
         super().__init__(config)
         if config.fractional:
-            self.model.rotary_emb = LlamaFractionalRotaryEmbedding(config=config, alpha=1, L=2048, l=2048)
+            self.model.rotary_emb = LlamaFractionalRotaryEmbedding(config=config, alpha=0, L=16384, l=4096)
             for i, layer in enumerate(self.model.layers):
                 layer.self_attn = LlamaAttentionFractionalRoPE(config, i)
