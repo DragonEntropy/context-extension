@@ -1,4 +1,5 @@
 import torch
+import math
 from typing import Callable, Optional
 
 from transformers.models.llama.configuration_llama import LlamaConfig
@@ -18,11 +19,11 @@ class LlamaConfigFractionalRoPE(LlamaConfig):
 
 
 class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
-    def __init__(self, config: LlamaConfig, device=None, alpha=1, L=2048, l=2048):
+    def __init__(self, config: LlamaConfig, device=None, alpha=1, L=16384, l=2048):
         # Fractional RoPE works with any variant of RoPE that doesn't mess with position ids.
         super().__init__(config, device=device)
         self.alpha = alpha
-        self.beta = torch.pow(l, -alpha) - torch.pow(L, -alpha)
+        self.beta = math.pow(l, -alpha) - math.pow(L, -alpha)
 
     def fractional_function(self, x):
         return x / torch.pow(1 + self.beta * torch.pow(x, self.alpha), 1 / self.alpha)
