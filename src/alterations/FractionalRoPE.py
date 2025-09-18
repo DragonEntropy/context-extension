@@ -45,8 +45,8 @@ class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
         emb = torch.cat((angles, angles), dim=-1)
         cos_cache = emb.cos()
         sin_cache = emb.sin()
-        self.register_buffer("cos_cache", cos_cache)
-        self.register_buffer("sin_cache", sin_cache)
+        self.register_buffer("cos_cache", cos_cache, persistent=False)
+        self.register_buffer("sin_cache", sin_cache, persistent=False)
 
     def fractional_function(self, x):
         # return torch.clamp(x, max=self.l)

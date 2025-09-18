@@ -65,12 +65,13 @@ vllm serve ../../../models/llama-2-7b-hf \
 ```
 python3 src/LongBench/LongBench/pred.py --model llama2-7b
 nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -f > logs/eval_output.log 2>&1 &
-nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -t fractional > logs/eval_output.log 2>&1 &
+nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -t fractional > logs/eval_multi_output.log 2>&1 &
 ```
 
 ### 6. Training (in background)
 ```
 nohup python3 src/finetuning/finetune.py > logs/finetune_output_yarn.log 2>&1 &
+nohup torchrun --nproc_per_node=4 -m src.finetuning.finetune > logs/finetune_output_yarn.log 2>&1 &
 ```
 
 ### 7. awq quantisation (for vllm compatibility)
