@@ -71,7 +71,7 @@ nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -t fractio
 ### 6. Training (in background)
 ```
 nohup python3 src/finetuning/finetune.py > logs/finetune_output_yarn.log 2>&1 &
-nohup torchrun --nproc_per_node=4 -m src.finetuning.finetune > logs/finetune_output_yarn.log 2>&1 &
+nohup torchrun --nproc_per_node=2 --master_port=29600 -m src.finetuning.finetune > logs/finetune_output_multi.log 2>&1 &
 ```
 
 ### 7. awq quantisation (for vllm compatibility)

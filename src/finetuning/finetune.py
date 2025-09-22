@@ -49,22 +49,6 @@ def tokenise(batch, tokeniser):
     tokens["labels"] = tokens["input_ids"].copy()
     return tokens
 
-class TokenizedIterableDataset(IterableDataset):
-    def __init__(self, hf_dataset, tokeniser):
-        self.dataset = hf_dataset
-        self.tokeniser = tokeniser
-
-    def __iter__(self):
-        for entry in self.dataset:
-            tokens = self.tokeniser(
-                entry["text"],
-                truncation=True,
-                max_length=self.tokeniser.model_max_length,
-                padding=False
-            )
-            tokens["labels"] = tokens["input_ids"].copy()
-            yield {k: torch.tensor(v) for k, v in tokens.items()}
-
 
 def main():
     argparser = ArgumentParser()
@@ -84,13 +68,14 @@ def main():
 
     fields = list(next(iter(dataset)).keys())
     dataset = dataset.map(lambda data: tokenise(data, tokeniser), remove_columns=fields)
-    train_dataset = TokenizedIterableDataset(dataset.skip(start_index + 32), tokeniser)
-    eval_dataset = TokenizedIterableDataset(dataset.take(32), tokeniser)
+    train_dataset = dataset.skip(start_index + 32)
+    eval_dataset = dataset.take(32)
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokeniser,
         mlm=False,
     )
+
 
     base_config = LlamaConfig.from_pretrained(input_model_path)
     config = LlamaConfigFractionalRoPE(**base_config.to_dict(), fractional=True)
@@ -99,12 +84,16 @@ def main():
         config=config,
         torch_dtype=torch.bfloat16
     )
+
+    # model = AutoModelForCausalLM.from_pretrained(input_model_path)
     model.config.pad_token_id = tokeniser.eos_token_id
     model.gradient_checkpointing_enable()
+    model.is_parallelizable = True
+    model.model_parallel = True
 
     # Adam 8 bit
-    optimiser = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32)
-    scheduler = None
+    # optimiser = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32)
+    # scheduler = None
 
     training_args = TrainingArguments(
         output_dir=output_model_path,
@@ -114,8 +103,8 @@ def main():
         eval_steps=100,
         save_total_limit=1,
         logging_steps=100,
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
+        per_device_train_batch_size=1,
+        per_device_eval_batch_size=1,
         max_steps=1000 - start_index,
         remove_unused_columns=False,
         deepspeed="ds_config.json"
@@ -127,9 +116,9 @@ def main():
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         tokenizer=tokeniser,
-        data_collator=data_collator,
-        callbacks=[EarlyStoppingCallback(patience=3)],
-        optimizers=(optimiser, scheduler)
+        data_collator=data_collator
+        # callbacks=[EarlyStoppingCallback(patience=3)],
+        # optimizers=(optimiser, scheduler)
     )
 
     trainer.train()
