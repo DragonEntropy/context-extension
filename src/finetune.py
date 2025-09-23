@@ -74,8 +74,8 @@ def build_model(args, tokeniser):
         "nope": No positional embeddings
         "alibi": Attention with linear biases
     """
-    
-    extension_ratio = float(args.context_length / BASE_CONTEXT_LENGTH)
+
+    extension_ratio = float(args.context_size / BASE_CONTEXT_LENGTH)
     default_model_rope_config = {
         "base": None,
         "linear": {
@@ -93,6 +93,7 @@ def build_model(args, tokeniser):
     }
 
     base_config = LlamaConfig.from_pretrained(args.model_path)
+    print(f"Attempting to run model {args.model_type}", flush=True)
     if args.model_type in default_model_rope_config.keys():
         model = AutoModelForCausalLM.from_pretrained(
             args.model_path,
@@ -129,14 +130,10 @@ def build_model(args, tokeniser):
     else:
         assert False, "Model type not supported. Model type can be customised by using the -t or --model_type flag."
 
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model_path,
-        torch_dtype=torch.bfloat16,
-        device_map="auto"
-    )
     model.config.pad_token_id = tokeniser.eos_token_id
     model.config.max_position_embeddings = args.context_size
     model.gradient_checkpointing_enable()
+    print(model.config, flush=True)
     return model
 
 
@@ -180,7 +177,7 @@ def build_trainer():
         save_total_limit=1,
         logging_steps=100,
         per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.batch_size,
+        per_device_eval_batch_size=args.batch_size // 2,
         max_steps=args.iterations,
         remove_unused_columns=False
     )

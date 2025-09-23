@@ -44,10 +44,14 @@ The original Llama2 model can be deleted at this point
 ## Model running
 
 ### Finetuning
+```
 nohup python3 src/finetune.py > logs/finetune_output.log 2>&1 &
+```
 
 ### Evaluating
+```
 nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 > logs/eval_output.log 2>&1 &
+```
 
 ## Other commands
 ### Launch model with vllm (for LongBenchv2):
