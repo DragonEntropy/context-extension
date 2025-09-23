@@ -12,7 +12,7 @@ from transformers.utils.generic import TransformersKwargs
 
 
 
-class LlamaConfigFractionalRoPE(LlamaConfig):
+class LlamaFractionalRoPEConfig(LlamaConfig):
     def __init__(self, fractional=True, alpha=1, **kwargs):
         super().__init__(**kwargs)
         self.fractional = fractional
@@ -75,7 +75,7 @@ class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
 
 # Adapted from transformers LlamaAttention
 class LlamaAttentionFractionalRoPE(LlamaAttention):
-    def __init__(self, config: LlamaConfigFractionalRoPE, layer_idx: int):
+    def __init__(self, config: LlamaFractionalRoPEConfig, layer_idx: int):
         super().__init__(config, layer_idx)
 
     def forward(
@@ -123,8 +123,8 @@ class LlamaAttentionFractionalRoPE(LlamaAttention):
         return attn_output, attn_weights
 
 
-class LlamaForCausalFractionalRoPE(LlamaForCausalLM):
-    def __init__(self, config: LlamaConfigFractionalRoPE):
+class LlamaFractionalRoPEForCausalLM(LlamaForCausalLM):
+    def __init__(self, config: LlamaFractionalRoPEConfig):
         super().__init__(config)
         if config.fractional:
             self.model.rotary_emb = LlamaFractionalRotaryEmbedding(config=config, alpha=0, L=16384, l=4096)

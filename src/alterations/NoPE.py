@@ -10,7 +10,7 @@ from transformers.modeling_flash_attention_utils import FlashAttentionKwargs
 from transformers.models.llama.modeling_llama import eager_attention_forward
 
 
-class LlamaConfigNoPE(LlamaConfig):
+class LlamaNoPEConfig(LlamaConfig):
     def __init__(self, nope=True, **kwargs):
         super().__init__(**kwargs)
         self.nope = nope
@@ -18,7 +18,7 @@ class LlamaConfigNoPE(LlamaConfig):
 
 # Adapted from transformers LlamaAttention
 class LlamaAttentionNoPE(LlamaAttention):
-    def __init__(self, config: LlamaConfigNoPE, layer_idx: int):
+    def __init__(self, config: LlamaNoPEConfig, layer_idx: int):
         super().__init__(config, layer_idx)
 
     def forward(
@@ -65,8 +65,8 @@ class LlamaAttentionNoPE(LlamaAttention):
         return attn_output, attn_weights
 
 
-class LlamaForCausalNoPE(LlamaForCausalLM):
-    def __init__(self, config: LlamaConfigNoPE):
+class LlamaNoPEForCausalLM(LlamaForCausalLM):
+    def __init__(self, config: LlamaNoPEConfig):
         super().__init__(config)
         if config.nope:
             for i, layer in enumerate(self.model.layers):

@@ -1,18 +1,26 @@
 ## Setup
+Repository should be structured as follows:
+```
+.
+├── datasets/
+├── logs/
+├── src/
+│   ├── alterations/
+|   │   └── <model_code>.py
+│   ├── LongBench/ (subrepo)
+│   └── <src_code>.py
+├── .gitignore
+├── .gitmodules
+├── README.md
+└── requirements.txt
+```
 
-### 1. Install requirements.txt
+### 1. Install requirements.txt (recommended in a python virtual environment)
 ```
 pip install -r requirements.txt
 ```
 
-## Setup (old)
-
-### 1. Install requirements.txt
-```
-pip install -r requirements.txt
-```
-
-### 1.5 Download git lfs if required
+### 1.5 Download git lfs if required for model download
 ```
 curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
 apt update
@@ -24,63 +32,31 @@ Accessible via:
 - Huggingface: https://huggingface.co/meta-llama/Llama-2-7b
 - META website: https://www.llama.com/llama-downloads
 
-### 2. Download benchmark
-```
-python
-from datasets import load_dataset
-dataset = load_dataset('THUDM/LongBench-v2', split='train', cache_dir='datasets')
-
-# Requires downgrading to datasets 2.19.1 or earlier 
-datasets = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
-  "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
-  "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
-
-for dataset in datasets:
-    data = load_dataset('THUDM/LongBench', dataset, split='test', cache_dir='datasets')
-```
-
-### 2.5 Download git lfs if required
-curl -s https://packagecloud.io/install/repositories/github/git-lfs/script.deb.sh | bash
-apt update
-apt install git-lfs
-
-### 3. Llama to huggingface
+### 3. Convert llama2 to transformers model
 ```
 python src/torch_to_hf.py \
   --input_dir models/Llama-2-7b/ \
   --model_size 7B \
   --output_dir models/llama-2-7b-hf
 ```
+The original Llama2 model can be deleted at this point
 
-### 4. Start model (vllm for LongBench v2)
-In the LongBench folder:
+## Model running
+
+### Finetuning
+nohup python3 src/finetune.py > logs/finetune_output.log 2>&1 &
+
+### Evaluating
+nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 > logs/eval_output.log 2>&1 &
+
+## Other commands
+### Launch model with vllm (for LongBenchv2):
 ```
-vllm serve ../../../models/llama-2-7b-hf \
-  --max-model-len 16384 \
+vllm serve models/llama-2-7b-hf \
+  --max-model-len 8192 \
   --gpu-memory-utilization 0.98 \
   --quantization bitsandbytes
 ```
-
-### 5. Start inference
-```
-python3 src/LongBench/LongBench/pred.py --model llama2-7b
-nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -f > logs/eval_output.log 2>&1 &
-nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 -t fractional > logs/eval_output.log 2>&1 &
-```
-
-### 6. Training (in background)
-```
-nohup python3 src/finetuning/finetune.py > logs/finetune_output_yarn.log 2>&1 &
-```
-
-### 7. awq quantisation (for vllm compatibility)
-python3 -m awq.quantize \
-  --model_path ../../models/llama-2-7b-hf \
-  --quant_path ../../models/llama-2-custom \
-  --w_bit 8 \
-  --q_group_size 128 \  
-  --use_sym
-
 
 ## Info
 
@@ -99,5 +75,3 @@ json
     "context": "The long context required for the task, such as documents, books, code repositories, etc."
 }
 ```
-
-pscp -r -P 18574 -i D:\Documents\Keys\pod-key-public.ssh root@38.128.232.109:/workspace/context-extension/llama-2-7b-hf_finetuned ~/Downloads

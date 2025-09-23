@@ -13,7 +13,7 @@ from transformers.models.llama.modeling_llama import repeat_kv
 from transformers.utils.generic import TransformersKwargs
 
 
-class LlamaConfigALiBi(LlamaConfig):
+class LlamaALiBiConfig(LlamaConfig):
     def __init__(self, alibi=True, **kwargs):
         super().__init__(**kwargs)
         self.alibi = alibi
@@ -21,7 +21,7 @@ class LlamaConfigALiBi(LlamaConfig):
 
 # Adapted from transformers LlamaAttention
 class LlamaAttentionALiBi(LlamaAttention):
-    def __init__(self, config: LlamaConfigALiBi, layer_idx: int):
+    def __init__(self, config: LlamaALiBiConfig, layer_idx: int):
         super().__init__(config, layer_idx)
         self.register_buffer(
             "slopes",
@@ -142,8 +142,8 @@ class LlamaAttentionALiBi(LlamaAttention):
         return attn_output, attn_weights
 
 
-class LlamaForCausalALiBi(LlamaForCausalLM):
-    def __init__(self, config: LlamaConfigALiBi):
+class LlamaALiBiForCausalLM(LlamaForCausalLM):
+    def __init__(self, config: LlamaALiBiConfig):
         super().__init__(config)
         if config.alibi:
             for i, layer in enumerate(self.model.layers):

@@ -3,7 +3,7 @@ from transformers.models.llama.modeling_llama import LlamaConfig
 import argparse
 import torch
 
-from alterations.FractionalRoPE import LlamaForCausalFractionalRoPE, LlamaConfigFractionalRoPE
+from alterations.FractionalRoPE import LlamaFractionalRoPEForCausalLM, LlamaFractionalRoPEConfig
 
 def main():
     argparser = argparse.ArgumentParser()
@@ -14,8 +14,8 @@ def main():
     model_path = args.model
 
     base_config = LlamaConfig.from_pretrained(model_path)
-    config = LlamaConfigFractionalRoPE(**base_config.to_dict(), fractional=True)
-    model = LlamaForCausalFractionalRoPE.from_pretrained(
+    config = LlamaFractionalRoPEConfig(**base_config.to_dict(), fractional=True)
+    model = LlamaFractionalRoPEForCausalLM.from_pretrained(
         model_path,
         config=config,
         local_files_only=True,
