@@ -5,14 +5,15 @@ from transformers import (
     Trainer, TrainingArguments, TrainerCallback
 )
 import math
-from bitsandbytes.optim import AdamW8bit
+from bitsandbytes.optim import PagedAdamW8bit
 from argparse import ArgumentParser
+import torch
 
 model_length = 2**(18 - 4)
 
 
 class EarlyStoppingCallback(TrainerCallback):
-    def __init__(self, patience=1):
+    def __init__(self, patience=10):
         self.patience = patience
         self.min_loss = math.inf
         self.counter = 0
@@ -24,7 +25,6 @@ class EarlyStoppingCallback(TrainerCallback):
 
         if score < self.min_loss:
             self.min_loss = score
-            self.counter = 0
         else:
             self.counter += 1
             if self.counter >= self.patience:
@@ -39,7 +39,7 @@ def tokenise(batch, tokeniser):
         batch["text"],
         truncation=True,
         max_length=tokeniser.model_max_length,
-        padding=False
+        padding=True
     )
     tokens["labels"] = tokens["input_ids"].copy()
     return tokens
@@ -62,8 +62,10 @@ def main():
     dataset = load_dataset("common-pile/project_gutenberg_filtered", split="train", streaming=True)
     fields = list(next(iter(dataset)).keys())
     dataset = dataset.map(lambda data: tokenise(data, tokeniser), remove_columns=fields)
-    eval_dataset = dataset.take(25)
-    train_dataset = dataset.skip(25 + start_index)
+
+    validation_index = 50
+    eval_dataset = dataset.take(validation_index)
+    train_dataset = dataset.skip(validation_index + start_index)
 
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokeniser,
@@ -72,13 +74,15 @@ def main():
 
     model = AutoModelForCausalLM.from_pretrained(
         input_model_path,
+        torch_dtype=torch.bfloat16,
         device_map="auto"
     )
     model.config.pad_token_id = tokeniser.eos_token_id
     model.gradient_checkpointing_enable()
+    print(next(model.parameters()).dtype, flush=True)
 
     # Adam 8 bit
-    optimiser = AdamW8bit(model.parameters(), lr=1e-4, optim_bits=32)
+    optimiser = PagedAdamW8bit(model.parameters(), lr=1e-4)
     scheduler = None
 
     training_args = TrainingArguments(
@@ -89,9 +93,9 @@ def main():
         eval_steps=100,
         save_total_limit=1,
         logging_steps=100,
-        per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,
-        max_steps=1000 - start_index,
+        per_device_train_batch_size=10,
+        per_device_eval_batch_size=10,
+        max_steps=32000,
         remove_unused_columns=False
     )
 

@@ -128,5 +128,3 @@ class LlamaForCausalFractionalRoPE(LlamaForCausalLM):
         super().__init__(config)
         if config.fractional:
             self.model.rotary_emb = LlamaFractionalRotaryEmbedding(config=config, alpha=0, L=16384, l=4096)
-            for i, layer in enumerate(self.model.layers):
-                layer.self_attn = LlamaAttentionFractionalRoPE(config, i)
