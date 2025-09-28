@@ -13,16 +13,18 @@ class TrainConfig(TypedDict):
 class EvalConfig(TypedDict):
     n_proc: int
     max_per_dataset: int
+    long_bench_e: bool
 
 
 class ModelConfig(TypedDict):
     train_config: TrainConfig
     eval_config: EvalConfig
+    model_name: str
     model_path: str
     model_type: Literal["base", "linear", "yarn", "fractional", "nope", "alibi"]
     old_context_length: int
     new_context_length: int
-    mode: Literal["train", "test", "train-test"]
+    mode: Literal["train", "test", "eval", "train-test", "test-eval" "train-test-eval"]
 
 
 DEFAULT_TRAIN_CONFIG: TrainConfig = {
@@ -34,17 +36,19 @@ DEFAULT_TRAIN_CONFIG: TrainConfig = {
 
 DEFAULT_EVAL_CONFIG: EvalConfig = {
     "n_proc": 15,
-    "max_per_dataset": -1
+    "max_per_dataset": -1,
+    "long_bench_e": False
 }
 
 DEFAULT_MODEL_CONFIG: ModelConfig = {
     "train_config": DEFAULT_TRAIN_CONFIG,
     "eval_config": DEFAULT_EVAL_CONFIG,
     "model_path": "models/llama-2-7b-hf",
+    "model_name": "test_model",
     "model_type": "base",
     "old_context_length": 4096,
     "new_context_length": 8192,
-    "mode": "train-test"
+    "mode": "train-test-eval"
 }
 
 def parse_config():

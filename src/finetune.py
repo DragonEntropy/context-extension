@@ -82,7 +82,7 @@ def build_model(config: ModelConfig, tokeniser):
     model_type = config["model_type"]
     model_path = config["model_path"]
     base_config = LlamaConfig.from_pretrained(model_path)
-    print(f"Attempting to run model {model_type}", flush=True)
+    print(f"Attempting to run model {config["model_name"]} of type {model_type}", flush=True)
     if model_type in default_model_rope_config.keys():
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -162,7 +162,7 @@ def build_trainer(config: ModelConfig):
     scheduler = None
 
     # Trainer setup
-    output_model_path = f"{config["model_path"]}_{config["model_type"]}"
+    output_model_path = f"{config["model_path"]}_{config["model_name"]}"
     training_args = TrainingArguments(
         output_dir=output_model_path,
         eval_strategy="steps",
@@ -190,11 +190,8 @@ def build_trainer(config: ModelConfig):
 
     return trainer
 
-def main():
+
+if __name__ == "__main__":
     config = parse_config()
     trainer = build_trainer(config)
     trainer.train()
-    
-
-if __name__ == "__main__":
-    main()
