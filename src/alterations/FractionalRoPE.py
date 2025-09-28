@@ -11,22 +11,23 @@ from transformers.models.llama.modeling_llama import apply_rotary_pos_emb, eager
 from transformers.utils.generic import TransformersKwargs
 
 
-
 class LlamaFractionalRoPEConfig(LlamaConfig):
-    def __init__(self, fractional=True, alpha=1, **kwargs):
+    def __init__(self, fractional=True, alpha=1, l=4096, L=8192, **kwargs):
         super().__init__(**kwargs)
         self.fractional = fractional
         self.alpha = alpha
+        self.l = l
+        self.L = L
 
 
 class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
-    def __init__(self, config: LlamaConfig, device=None, alpha=1, L=16384, l=2048):
+    def __init__(self, config: LlamaConfig, device=None):
         # Fractional RoPE works with any variant of RoPE that doesn't mess with position ids.
         super().__init__(config, device=device)
-        self.l = l
-        self.L = L
-        self.alpha = alpha
-        self.beta = math.pow(l, -alpha) - math.pow(L, -alpha)
+        self.l = config.l
+        self.L = config.L
+        self.alpha = config.alpha
+        self.beta = math.pow(config.l, -config.alpha) - math.pow(config.L, -config.alpha)
 
         # Override inv_freq
         self.inv_freq = None
@@ -126,5 +127,6 @@ class LlamaAttentionFractionalRoPE(LlamaAttention):
 class LlamaFractionalRoPEForCausalLM(LlamaForCausalLM):
     def __init__(self, config: LlamaFractionalRoPEConfig):
         super().__init__(config)
+        print("Replacing rotary embeddings with fractional embeddings", flush=True)
         if config.fractional:
-            self.model.rotary_emb = LlamaFractionalRotaryEmbedding(config=config, alpha=0, L=16384, l=4096)
+            self.model.rotary_emb = LlamaFractionalRotaryEmbedding(config=config)

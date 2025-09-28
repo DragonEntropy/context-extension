@@ -46,11 +46,18 @@ The original Llama2 model can be deleted at this point
 ### Finetuning
 ```
 nohup python3 src/finetune.py > logs/finetune_output.log 2>&1 &
+nohup python3 src/finetune.py -i 3200 -p models/llama-2-7b-hf -t yarn > logs/finetune_yarn_output.log 2>&1 &
 ```
 
-### Evaluating
+### Prediction
 ```
 nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 > logs/eval_output.log 2>&1 &
+nohup python3 -m src.LongBench.LongBench.pred --model models/llama-2-fractional/checkpoint-3200 -l 40 -t fractional > logs/eval_output_fractional.log 2>&1 &
+```
+
+### Evaluation
+```
+python3 src/LongBench/LongBench/eval.py --model models/llama-2-fractional/checkpoint-3200
 ```
 
 ## Other commands

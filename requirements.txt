@@ -4,7 +4,7 @@ fairscale
 fire
 sentencepiece
 vllm
-datasets
+datasets==3.6.0
 accelerate
 bitsandbytes
 llmcompressor
