@@ -3,11 +3,9 @@ from datasets import load_dataset
 import torch
 import json
 from transformers import AutoTokenizer
-from transformers.models.llama.modeling_llama import LlamaConfig
 from tqdm import tqdm
 import numpy as np
 import random
-import argparse
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
@@ -27,13 +25,20 @@ def build_chat(prompt, model_path):
     # This code is retained incase additional testing with llama2-chat was needed
     if "chat" in model_path:
         prompt = f"[INST]{prompt}[/INST]"
+    return prompt
 
 
-def get_pred(rank, data, max_length, max_gen, dataset, prompt_format, model, tokeniser, out_path, config: ModelConfig):
+def get_pred(rank, data, max_length, max_gen, prompt_format, dataset, model, tokeniser, out_path, config: ModelConfig):
+
+    model_path = f"{config['save_dir']}/{config['model_name']}"
+    tokeniser = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+    tokeniser.pad_token = tokeniser.eos_token
+    tokeniser.model_max_length = config["new_context_length"]
+    model = build_model(config, tokeniser, True)
+
     device = torch.device(f'cuda:{rank}')
-    max_gen = config[""]
     count = 0
-    print(f"Dataset {dataset} has {length} entries", flush=True)
+    print(f"Dataset {dataset} has {len(data)} entries. Using max length {max_length} with model context_length {model.config.max_position_embeddings}", flush=True)
 
     for json_obj in tqdm(data):
         prompt = prompt_format.format(**json_obj)
@@ -47,6 +52,7 @@ def get_pred(rank, data, max_length, max_gen, dataset, prompt_format, model, tok
         if dataset not in ["trec", "triviaqa", "samsum", "lsht", "lcc", "repobench-p"]: # chat models are better off without build prompts on these tasks
             prompt = build_chat(prompt, config["model_path"])
         input = tokeniser(prompt, truncation=False, return_tensors="pt").to(device)
+        print(f"Prompt length: {len(prompt[0])}. Input length: {len(input)}")
         context_length = input.input_ids.shape[-1]
 
         # Retained for consistently even though this may not be an issue
@@ -98,13 +104,7 @@ def predict(config):
     config = parse_config()
     world_size = torch.cuda.device_count()
     mp.set_start_method('spawn', force=True)
-
-    tokeniser = AutoTokenizer.from_pretrained(config["base_path"])
-    tokeniser.pad_token = tokeniser.eos_token
-    tokeniser.model_max_length = config["new_context_length"]
-    model = build_model(config, tokeniser)
-    model_path = config["model_path"]
-    model_name = f"{model_path}_{config["model_name"]}"
+    model_name = config["model_name"]
     
     if config["eval_config"]["long_bench_e"]:
         datasets = ["multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report", "multi_news", \
@@ -145,7 +145,7 @@ def predict(config):
         for rank in range(world_size):
             p = mp.Process(
                 target=get_pred,
-                args=(rank, data_subsets[rank], config["new_context_length"], max_gen, prompt_format, dataset, model, tokeniser, out_path, config))
+                args=(rank, data_subsets[rank], config["new_context_length"], max_gen, prompt_format, dataset, None, None, out_path, config))
             p.start()
             processes.append(p)
         for p in processes:

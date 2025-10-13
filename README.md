@@ -52,13 +52,16 @@ nohup python3 src/finetune.py -i 3200 -p models/llama-2-7b-hf -t yarn > logs/fin
 ### Prediction
 ```
 nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 > logs/eval_output.log 2>&1 &
-nohup python3 -m src.LongBench.LongBench.pred --model models/llama-2-fractional/checkpoint-3200 -l 40 -t fractional > logs/eval_output_fractional.log 2>&1 &
+nohup python3 -m src.LongBench.LongBench.pred --model models/llama2-frac1 -l 40 -t fractional > logs/eval_output_fractional.log 2>&1 &
 ```
 
 ### Evaluation
 ```
-python3 src/LongBench/LongBench/eval.py --model models/llama-2-fractional/checkpoint-3200
+python3 src/LongBench/LongBench/eval.py --model models/llama2-frac1
 ```
+
+### Pipeline code
+nohup python3 src/pipeline.py > logs/results_frac1.log 2>&1 &
 
 ## Other commands
 ### Launch model with vllm (for LongBenchv2):

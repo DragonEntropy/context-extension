@@ -49,15 +49,20 @@ class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
         self.register_buffer("cos_cache", cos_cache)
         self.register_buffer("sin_cache", sin_cache)
 
-    def fractional_function(self, x):
+    def fractional_function(self, x, type="odd"):
+        print("Doing the fractional thing!", flush=True)
         # return torch.clamp(x, max=self.l)
         if self.alpha == 0:
             return x * self.l / self.L
-        return x / torch.pow(1 + self.beta * torch.pow(x, self.alpha), 1 / self.alpha)
+        if type == "odd":
+            return x / torch.pow(1 + self.beta * torch.pow(torch.abs(x), self.alpha), 1 / self.alpha)
+        if type == "even":
+            return torch.abs(x) / torch.pow(1 + self.beta * torch.pow(torch.abs(x), self.alpha), 1 / self.alpha)
+        else:
+            return x / torch.pow(1 + self.beta * torch.pow(x, self.alpha), 1 / self.alpha)
 
     @torch.no_grad()
     def forward(self, x, position_ids):
-
         device_type = x.device.type if isinstance(x.device.type, str) and x.device.type != "mps" else "cpu"
         with torch.autocast(device_type=device_type, enabled=False):
             max_len = self.config.max_position_embeddings
@@ -74,7 +79,7 @@ class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
         return cos.to(dtype=x.dtype), sin.to(dtype=x.dtype)
 
 
-# Adapted from transformers LlamaAttention
+# Unused class, since attention is identical to RoPE attention apart from the angle computation
 class LlamaAttentionFractionalRoPE(LlamaAttention):
     def __init__(self, config: LlamaFractionalRoPEConfig, layer_idx: int):
         super().__init__(config, layer_idx)
