@@ -9,8 +9,7 @@ import random
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
-from utils import parse_config, ModelConfig
-from finetune import build_model
+from utils import parse_config, ModelConfig, build_model
 
 
 dataset2prompt = json.load(open(f"config/dataset2prompt.json", "r"))
@@ -30,7 +29,7 @@ def build_chat(prompt, model_path):
 
 def get_pred(rank, data, max_length, max_gen, prompt_format, dataset, model, tokeniser, out_path, config: ModelConfig):
 
-    model_path = f"{config['save_dir']}/{config['model_name']}"
+    model_path = f"{config['save_dir']}/{config['model_name']}" if not config["eval_config"]["use_base_model"] else config["model_path"]
     tokeniser = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
     tokeniser.pad_token = tokeniser.eos_token
     tokeniser.model_max_length = config["new_context_length"]

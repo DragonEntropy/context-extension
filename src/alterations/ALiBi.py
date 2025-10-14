@@ -95,7 +95,7 @@ class LlamaAttentionALiBi(LlamaAttention):
         hidden_states: torch.Tensor,
         position_embeddings: tuple[torch.Tensor, torch.Tensor],
         attention_mask: Optional[torch.Tensor],
-        past_key_value: Optional[Cache] = None,
+        past_key_values: Optional[Cache] = None,
         cache_position: Optional[torch.LongTensor] = None,
         **kwargs: Unpack[FlashAttentionKwargs],
     ) -> tuple[torch.Tensor, Optional[torch.Tensor], Optional[tuple[torch.Tensor]]]:
@@ -112,10 +112,10 @@ class LlamaAttentionALiBi(LlamaAttention):
 
         # Removed application of rotary embeddings here
 
-        if past_key_value is not None:
+        if past_key_values is not None:
             # Removed sin and cos from cache_kwargs
             cache_kwargs = {"cache_position": cache_position}
-            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+            key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         alibi = None
         if self.config.alibi:

@@ -1,19 +1,13 @@
 from datasets import load_dataset
 from transformers import (
-    AutoTokenizer, AutoModelForCausalLM,
+    AutoTokenizer,
     DataCollatorForLanguageModeling,
     Trainer, TrainingArguments, TrainerCallback
 )
-from transformers.models.llama.configuration_llama import LlamaConfig
 from bitsandbytes.optim import PagedAdamW8bit
-from argparse import ArgumentParser
 import math
-import torch
 
-from alterations.FractionalRoPE import LlamaFractionalRoPEForCausalLM, LlamaFractionalRoPEConfig
-from alterations.NoPE import LlamaNoPEForCausalLM, LlamaNoPEConfig
-from alterations.ALiBi import LlamaALiBiForCausalLM, LlamaALiBiConfig
-from utils import parse_config, ModelConfig
+from utils import parse_config, ModelConfig, build_model
 
 
 class EarlyStoppingCallback(TrainerCallback):
@@ -47,91 +41,6 @@ def tokenise(batch, tokeniser):
     )
     tokens["labels"] = tokens["input_ids"].copy()
     return tokens
-
-
-def build_model(json_config: ModelConfig, tokeniser, is_eval: bool):
-    """
-    List of supported RoPE configurations:
-        "base": No interpolation
-        "linear": Linear interpolation
-        "dynamic": Dynamic ntk-aware RoPE interpolation
-        "yarn": Yet another RoPE extension
-        "fractional:" Custom non-linear relative position implementation
-        "nope": No positional embeddings
-        "alibi": Attention with linear biases
-    """
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    extension_ratio = float(json_config["new_context_length"] / json_config["old_context_length"])
-    default_model_rope_config = {
-        "base": None,
-        "linear": {
-            "rope_type": "linear",
-            "factor": extension_ratio
-        },
-        "dynamic": {
-            "rope_type": "dynamic",
-            "factor": extension_ratio
-        },
-        "yarn": {
-            "rope_type": "yarn",
-            "factor": extension_ratio,
-            "original_max_position_embeddings": json_config["old_context_length"]
-        }
-    }
-
-    model_type = json_config["model_type"]
-    if is_eval and not json_config["eval_config"]["use_base_model"]:
-        model_path = f"{json_config['save_dir']}/{json_config['model_name']}" 
-    else:
-        model_path = json_config["model_path"]
-    base_config = LlamaConfig.from_pretrained(model_path)
-    print(f"Attempting to run model {json_config['model_name']} of type {model_type}", flush=True)
-    if model_type in default_model_rope_config.keys():
-        model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            config=base_config,
-            torch_dtype=torch.bfloat16,
-            local_files_only=True
-        ).to(device)
-        model.config.rope_scaling = default_model_rope_config[model_type]
-
-    elif model_type == "fractional":
-        config = LlamaFractionalRoPEConfig(**base_config.to_dict())
-        config.architectures = ["LlamaFractionalRoPEForCausalLM"]
-        model = LlamaFractionalRoPEForCausalLM.from_pretrained(
-            model_path,
-            config=config,
-            torch_dtype=torch.bfloat16,
-            local_files_only=True
-        ).to(device)
-    elif model_type == "nope":
-        config = LlamaNoPEConfig(**base_config.to_dict())
-        config.architectures = ["LlamaNoPEForCausalLM"]
-        model = LlamaNoPEForCausalLM.from_pretrained(
-            model_path,
-            config=config,
-            torch_dtype=torch.bfloat16,
-            local_files_only=True
-        ).to(device)
-    elif model_type == "alibi":
-        config = LlamaALiBiConfig(**base_config.to_dict())
-        config.architectures = ["LlamaALiBiForCausalLM"]
-        model = LlamaALiBiForCausalLM.from_pretrained(
-            model_path,
-            config=config,
-            torch_dtype=torch.bfloat16,
-            local_files_only=True
-        ).to(device)
-    else:
-        assert False, "Model type not supported. Model type can be customised by changing the model_type attribute in config."
-
-    model.config.pad_token_id = tokeniser.eos_token_id
-    model.config.max_position_embeddings = json_config["new_context_length"]
-    model.gradient_checkpointing_enable()
-    print(f"Successfully loaded model type {type(model).__name__}")
-    print(f"Model config:\n{model.config}")
-    return model
 
 
 def build_trainer(config: ModelConfig):
