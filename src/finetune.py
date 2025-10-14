@@ -19,7 +19,8 @@ class EarlyStoppingCallback(TrainerCallback):
 
     def on_evaluate(self, args, state, control, metrics, **kwargs):
         score = metrics.get("eval_loss", math.inf)
-        print(f"Eval step {self.eval_step} - Current eval loss: {score}", flush=True)
+        optim = kwargs.get("optimizer")
+        print(f"Eval step {self.eval_step} (lr: {optim.param_groups[0]['lr']}) - Current eval loss: {score}", flush=True)
 
         if score < self.min_loss:
             self.min_loss = score

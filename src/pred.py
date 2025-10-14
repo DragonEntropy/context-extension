@@ -51,7 +51,6 @@ def get_pred(rank, data, max_length, max_gen, prompt_format, dataset, model, tok
         if dataset not in ["trec", "triviaqa", "samsum", "lsht", "lcc", "repobench-p"]: # chat models are better off without build prompts on these tasks
             prompt = build_chat(prompt, config["model_path"])
         input = tokeniser(prompt, truncation=False, return_tensors="pt").to(device)
-        print(f"Prompt length: {len(prompt[0])}. Input length: {len(input)}")
         context_length = input.input_ids.shape[-1]
 
         # Retained for consistently even though this may not be an issue

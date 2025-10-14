@@ -61,7 +61,7 @@ python3 src/LongBench/LongBench/eval.py --model models/llama2-frac1
 ```
 
 ### Pipeline code
-nohup python3 src/pipeline.py > logs/results_frac1.log 2>&1 &
+nohup python3 src/pipeline.py > logs/results_base_frac0.5.log 2>&1 &
 
 ## Other commands
 ### Launch model with vllm (for LongBenchv2):
