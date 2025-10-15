@@ -1,7 +1,7 @@
 import torch
 from torch import nn
-import math
 from typing import Callable, Optional
+from functorch.experimental.control_flow import map
 
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.models.llama.modeling_llama import LlamaAttention, LlamaForCausalLM
@@ -29,7 +29,10 @@ class LlamaAttentionALiBi(LlamaAttention):
             persistent=False,
         )
 
-    def slope_formula(i, num_heads):
+    def exponent_formula(i, num_heads):
+        return - 8 * (i + 1) / num_heads
+
+    def precompute_slopes(num_heads):
         """
         Llama2 7b has 32 attention heads
         ALiBi paper uses geometric formula for slope:
@@ -37,11 +40,10 @@ class LlamaAttentionALiBi(LlamaAttention):
             r = 2^(-8/n)
         Equivalent formula: 2^(-8(i + 1)/n) for head i
         """
-        return math.pow(2, - 8 * (i + 1) / num_heads)
+        exponents = map(LlamaAttentionALiBi.exponent_formula, torch.linspace(0, num_heads - 1, num_heads), num_heads)
+        return torch.pow(2, exponents)
 
-    def precompute_slopes(num_heads):
-        # Calculates slops for each attention head
-        return torch.tensor([LlamaAttentionALiBi.slope_formula(i, num_heads) for i in range(num_heads)])
+        # Old probably slower: return torch.tensor(math.pow(2, - 8 * (i + 1) / num_heads) for i in range(num_heads))
 
     def calculate_alibi(slopes, query_len, key_len):
         device = slopes.device

@@ -30,7 +30,7 @@ def build_chat(prompt, model_path):
     return prompt
 
 
-def get_pred(rank, data, max_length, max_gen, prompt_format, dataset, model, tokeniser, out_path, config: ModelConfig):
+def get_pred(rank, data, max_length, max_gen, prompt_format, dataset, out_path, config: ModelConfig):
 
     model_path = f"{config['save_dir']}/{config['model_name']}" if not config["eval_config"]["use_base_model"] else config["model_path"]
     tokeniser = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
@@ -151,7 +151,7 @@ def predict(config):
         for rank in range(world_size):
             p = mp.Process(
                 target=get_pred,
-                args=(rank, data_subsets[rank], config["new_context_length"], max_gen, prompt_format, dataset, None, None, out_path, config))
+                args=(rank, data_subsets[rank], config["new_context_length"], max_gen, prompt_format, dataset, out_path, config))
             p.start()
             processes.append(p)
         for p in processes:
