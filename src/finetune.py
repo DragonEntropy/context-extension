@@ -56,7 +56,7 @@ def build_trainer(config: ModelConfig):
     fields = list(next(iter(dataset)).keys())
     dataset = dataset.map(
         lambda data: tokenise(data, tokeniser),
-        remove_columns=fields, 
+        remove_columns=fields,
         load_from_cache_file=True,
         cache_file_name="datasets/cached_pg19"
     )

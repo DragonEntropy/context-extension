@@ -23,6 +23,8 @@ class EvalConfig(TypedDict):
     max_per_dataset: int
     long_bench_e: bool
     use_base_model: bool
+    do_longbench: bool
+    perplexity_examples: int
 
 
 class ModelConfig(TypedDict):
@@ -48,7 +50,8 @@ DEFAULT_EVAL_CONFIG: EvalConfig = {
     "n_proc": 15,
     "max_per_dataset": -1,
     "long_bench_e": False,
-    "use_base_model": False
+    "use_base_model": False,
+    "perplexity_examples": 1000
 }
 
 DEFAULT_MODEL_CONFIG: ModelConfig = {
@@ -62,6 +65,7 @@ DEFAULT_MODEL_CONFIG: ModelConfig = {
     "new_context_length": 8192,
     "mode": "train-test-eval"
 }
+
 
 def parse_config():
     argparser = ArgumentParser()
@@ -118,7 +122,7 @@ def build_model(json_config: ModelConfig, tokeniser, is_eval: bool):
 
     model_type = json_config["model_type"]
     if is_eval and not json_config["eval_config"]["use_base_model"]:
-        model_path = f"{json_config['save_dir']}/{json_config['model_name']}" 
+        model_path = f"{json_config['save_dir']}/{json_config['model_name']}"
     else:
         model_path = json_config["model_path"]
     base_config = LlamaConfig.from_pretrained(model_path)

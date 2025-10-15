@@ -71,7 +71,7 @@ class LlamaFractionalRotaryEmbedding(LlamaRotaryEmbedding):
                 position_ids = position_ids[0]
 
             # Position id 0 is at max_len - 1 in the cache
-            indices = (position_ids +  max_len - 1).clamp(0, 2 * max_len - 2)
+            indices = (position_ids + max_len - 1).clamp(0, 2 * max_len - 2)
 
             cos = self.cos_cache[:, indices, :]
             sin = self.sin_cache[:, indices, :]

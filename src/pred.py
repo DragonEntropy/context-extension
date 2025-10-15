@@ -12,14 +12,17 @@ import torch.multiprocessing as mp
 from utils import parse_config, ModelConfig, build_model
 
 
-dataset2prompt = json.load(open(f"config/dataset2prompt.json", "r"))
-dataset2maxlen = json.load(open(f"config/dataset2maxlen.json", "r"))
+dataset2prompt = json.load(open("config/dataset2prompt.json", "r"))
+dataset2maxlen = json.load(open("config/dataset2maxlen.json", "r"))
+
 
 """
 This code was adapted from the original LongBench source code:
     - https://aclanthology.org/2024.acl-long.172.pdf
     - https://github.com/THUDM/LongBench
 """
+
+
 def build_chat(prompt, model_path):
     # This code is retained incase additional testing with llama2-chat was needed
     if "chat" in model_path:
@@ -41,27 +44,26 @@ def get_pred(rank, data, max_length, max_gen, prompt_format, dataset, model, tok
 
     for json_obj in tqdm(data):
         prompt = prompt_format.format(**json_obj)
-        length = json_obj["length"]
 
         # truncate to fit max_length (we suggest truncate in the middle, since the left and right side may contain crucial instructions)
         tokenized_prompt = tokeniser(prompt, truncation=False, return_tensors="pt").input_ids[0]
         if len(tokenized_prompt) > max_length:
-            half = int(max_length/2)
-            prompt = tokeniser.decode(tokenized_prompt[:half], skip_special_tokens=True)+tokeniser.decode(tokenized_prompt[-half:], skip_special_tokens=True)
-        if dataset not in ["trec", "triviaqa", "samsum", "lsht", "lcc", "repobench-p"]: # chat models are better off without build prompts on these tasks
+            half = int(max_length / 2)
+            prompt = tokeniser.decode(tokenized_prompt[:half], skip_special_tokens=True) + tokeniser.decode(tokenized_prompt[-half:], skip_special_tokens=True)
+        if dataset not in ["trec", "triviaqa", "samsum", "lsht", "lcc", "repobench-p"]:  # chat models are better off without build prompts on these tasks
             prompt = build_chat(prompt, config["model_path"])
         input = tokeniser(prompt, truncation=False, return_tensors="pt").to(device)
         context_length = input.input_ids.shape[-1]
 
         # Retained for consistently even though this may not be an issue
-        if dataset == "samsum": # prevent illegal output on samsum (model endlessly repeat "\nDialogue"), might be a prompting issue
+        if dataset == "samsum":  # prevent illegal output on samsum (model endlessly repeat "\nDialogue"), might be a prompting issue
             output = model.generate(
                 **input,
                 max_new_tokens=max_gen,
                 num_beams=1,
                 do_sample=False,
                 temperature=1.0,
-                min_length=context_length+1,
+                min_length=context_length + 1,
                 eos_token_id=[tokeniser.eos_token_id, tokeniser.encode("\n", add_special_tokens=False)[-1]],
             )[0]
         else:
@@ -82,7 +84,7 @@ def get_pred(rank, data, max_length, max_gen, prompt_format, dataset, model, tok
         # Ensures only first n entries are processed due to computational constraints
         if count == config["eval_config"]["max_per_dataset"]:
             break
-    
+
     if dist.is_initialized():
         dist.destroy_process_group()
 
@@ -103,14 +105,20 @@ def predict(config):
     world_size = torch.cuda.device_count()
     mp.set_start_method('spawn', force=True)
     model_name = config["model_name"]
-    
+
     if config["eval_config"]["long_bench_e"]:
-        datasets = ["multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report", "multi_news", \
-            "trec", "triviaqa", "samsum", "passage_count", "passage_retrieval_en", "lcc", "repobench-p"]
+        datasets = [
+            "multifieldqa_en", "hotpotqa", "2wikimqa", "gov_report",
+            "multi_news", "trec", "triviaqa", "samsum", "passage_count",
+            "passage_retrieval_en", "lcc", "repobench-p"
+        ]
     else:
-        datasets = ["narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh", "hotpotqa", "2wikimqa", "musique", \
-                    "dureader", "gov_report", "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht", \
-                    "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"]
+        datasets = [
+            "narrativeqa", "qasper", "multifieldqa_en", "multifieldqa_zh",
+            "hotpotqa", "2wikimqa", "musique", "dureader", "gov_report",
+            "qmsum", "multi_news", "vcsum", "trec", "triviaqa", "samsum", "lsht",
+            "passage_count", "passage_retrieval_en", "passage_retrieval_zh", "lcc", "repobench-p"
+        ]
 
     if not os.path.exists("pred"):
         os.makedirs("pred")
