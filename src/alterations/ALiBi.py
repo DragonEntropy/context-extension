@@ -136,7 +136,7 @@ class LlamaAttentionALiBi(LlamaAttention):
             # ALiBi application to attention
             # attention_interface = LlamaAttentionALiBi.alibi_attention_forward_sdpa
             alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len, offset=cache_offset).to(query_states.dtype)
-            attention_mask = attention_mask + alibi if attention_mask else alibi
+            attention_mask = attention_mask + alibi if attention_mask is not None else alibi
         if self.config._attn_implementation != "eager":
             attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 
