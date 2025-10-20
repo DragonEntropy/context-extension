@@ -12,7 +12,7 @@ from transformers.utils.generic import TransformersKwargs
 
 
 class LlamaFractionalRoPEConfig(LlamaConfig):
-    def __init__(self, fractional=True, alpha=0.5, l=4096, L=8192, **kwargs):
+    def __init__(self, fractional=True, alpha=1, l=4096, L=8192, **kwargs):
         super().__init__(**kwargs)
         self.fractional = fractional
         self.alpha = alpha

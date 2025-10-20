@@ -1,3 +1,4 @@
+
 import torch
 from torch import nn
 from typing import Callable, Optional
@@ -9,7 +10,7 @@ from transformers.cache_utils import Cache
 from transformers.processing_utils import Unpack
 from transformers.modeling_flash_attention_utils import FlashAttentionKwargs
 from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS
-from transformers.models.llama.modeling_llama import repeat_kv
+from transformers.models.llama.modeling_llama import repeat_kv, eager_attention_forward
 from transformers.utils.generic import TransformersKwargs
 
 
@@ -21,16 +22,15 @@ class LlamaALiBiConfig(LlamaConfig):
 
 # Adapted from transformers LlamaAttention
 class LlamaAttentionALiBi(LlamaAttention):
+    _NEG_INF = 1e-9
+
     def __init__(self, config: LlamaALiBiConfig, layer_idx: int):
         super().__init__(config, layer_idx)
         self.register_buffer(
             "slopes",
-            self.precompute_slopes(config.num_attention_heads),
+            LlamaAttentionALiBi.precompute_slopes(config.num_attention_heads),
             persistent=False,
         )
-
-    def exponent_formula(i, num_heads):
-        return - 8 * (i + 1) / num_heads
 
     def precompute_slopes(num_heads):
         """
@@ -40,30 +40,83 @@ class LlamaAttentionALiBi(LlamaAttention):
             r = 2^(-8/n)
         Equivalent formula: 2^(-8(i + 1)/n) for head i
         """
-        exponents = map(LlamaAttentionALiBi.exponent_formula, torch.linspace(0, num_heads - 1, num_heads), num_heads)
-        return torch.pow(2, exponents)
+        indices = torch.linspace(0, num_heads - 1, num_heads)
+        exponents = - 8.0 * (indices + 1.0) / num_heads / float(num_heads)
+        return torch.pow(2.0, exponents)
 
         # Old probably slower: return torch.tensor(math.pow(2, - 8 * (i + 1) / num_heads) for i in range(num_heads))
 
-    def calculate_alibi(slopes, query_len, key_len):
+    def calculate_alibi(slopes, query_len, key_len, offset=0):
         device = slopes.device
 
         # Slopes are scaled by relative distances of each token
-        key_ids = torch.arange(key_len).unsqueeze(0)
-        query_ids = torch.arange(query_len).unsqueeze(1)
+        key_ids = torch.arange(key_len).unsqueeze(0).to(device)
+        query_ids = torch.arange(query_len).unsqueeze(1).to(device)
         # 1 x m - n x 1 -> n x m
-        relative_ids = torch.clamp(key_ids - query_ids, max=0)
+        # relative_ids = torch.where(key_ids <= query_ids + offset, key_ids - query_ids - offset, - LlamaAttentionALiBi._NEG_INF)
+        relative_ids = torch.where(key_ids <= query_ids + offset, 0, - LlamaAttentionALiBi._NEG_INF)
         """
-        relative_ids looks something like this:
-         0   0   0   0   >
-        -1   0   0   0   >
-        -2  -1   0   0   >
+        relative_ids looks something like this (-i: -infinity):
+         0  -i  -i  -i   >
+        -1   0  -i  -i   >
+        -2  -1   0  -i   >
         -3  -2  -1   0   >
          v   v   v   v
+        When query_len = 1, offset = k:
+        -k  ...  0  -i
         """
-        alibi = (slopes.view(1, -1, 1, 1) * relative_ids.view(1, 1, query_len, key_len)).to(device)
+        print(relative_ids)
+        alibi = (slopes.view(1, -1, 1, 1) * relative_ids.view(1, 1, query_len, key_len)).to(device, dtype=torch.bfloat16)
+        print(query_len, key_len, alibi.shape)
         return alibi
 
+    def alibi_attention_forward_sdpa(
+        self,
+        query_states,
+        key_states,
+        value_states,
+        attention_mask=None,
+        dropout=0.0,
+        scaling=1.0,
+        is_causal=True,
+        alibi=True,
+        **kwargs,
+    ):
+
+        # Alibi weights can be added to attention mask with the sdpa method
+        """
+        if alibi is not None:
+            if attention_mask is None:
+                attention_mask = alibi
+                print(f"Attention mask shape: {attention_mask.shape}\nAlibi shape: {alibi.shape}")
+                print(f"Query shape: {query_states.shape}\nKeys shape: {key_states.shape}")
+            else:
+                attention_mask = attention_mask + alibi.to(attention_mask.dtype)
+        """
+
+        torch.nn.functional.scaled_dot_product_attention(
+            query_states,
+            key_states,
+            value_states,
+            attn_mask=attention_mask,
+            dropout_p=dropout if self.training else 0.0,
+            scale=scaling,
+            is_causal=True
+        )
+
+        attn_output = torch.nn.functional.scaled_dot_product_attention(
+            query_states,
+            key_states,
+            value_states,
+            attn_mask=attention_mask,
+            dropout_p=dropout if self.training else 0.0,
+            scale=scaling,
+            is_causal=is_causal,
+        )
+
+        return attn_output, None
+
+    # Eager attention implementation. Unused since llama model uses sdpa
     def alibi_attention_forward(
         module: nn.Module,
         query: torch.Tensor,
@@ -92,6 +145,7 @@ class LlamaAttentionALiBi(LlamaAttention):
 
         return attn_output, attn_weights
 
+    """
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -120,11 +174,11 @@ class LlamaAttentionALiBi(LlamaAttention):
             key_states, value_states = past_key_values.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
         alibi = None
+        attention_interface: Callable = eager_attention_forward
         if self.config.alibi:
             # ALiBi application to attention
-            attention_interface: Callable = LlamaAttentionALiBi.alibi_attention_forward
             alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len)
-        else:
+        elif self.config._attn_implementation != "eager":
             attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 
         attn_output, attn_weights = attention_interface(
@@ -142,11 +196,12 @@ class LlamaAttentionALiBi(LlamaAttention):
         attn_output = attn_output.reshape(*input_shape, -1).contiguous()
         attn_output = self.o_proj(attn_output)
         return attn_output, attn_weights
+        """
 
 
 class LlamaALiBiForCausalLM(LlamaForCausalLM):
     def __init__(self, config: LlamaALiBiConfig):
         super().__init__(config)
-        if config.alibi:
-            for i, layer in enumerate(self.model.layers):
-                layer.self_attn = LlamaAttentionALiBi(config, i)
+        #if config.alibi:
+            #for i, layer in enumerate(self.model.layers):
+            #    layer.self_attn = LlamaAttentionALiBi(config, i)

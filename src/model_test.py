@@ -4,6 +4,8 @@ import argparse
 import torch
 
 from alterations.FractionalRoPE import LlamaFractionalRoPEForCausalLM, LlamaFractionalRoPEConfig
+from alterations.ALiBi import LlamaALiBiForCausalLM, LlamaALiBiConfig
+from alterations.Hybrid import LlamaHybridForCausalLM, LlamaHybridConfig
 
 def main():
     argparser = argparse.ArgumentParser()
@@ -14,14 +16,13 @@ def main():
     model_path = args.model
 
     base_config = LlamaConfig.from_pretrained(model_path)
-    config = LlamaFractionalRoPEConfig(**base_config.to_dict(), fractional=True)
-    model = LlamaFractionalRoPEForCausalLM.from_pretrained(
+    config = LlamaHybridConfig(**base_config.to_dict())
+    model = LlamaHybridForCausalLM.from_pretrained(
         model_path,
         config=config,
         local_files_only=True,
-        dtype=torch.bfloat16,
-        device_map="auto"
-    )
+        torch_dtype=torch.bfloat16
+    ).to("cuda")
 
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
     # model = AutoModelForCausalLM.from_pretrained(path, local_files_only=True).to(device)
@@ -51,7 +52,7 @@ def main():
                 line = input()
             print(f"Prompt length: {len(prompt.split(' '))}")
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-            outputs = model.generate(**inputs, max_new_tokens=100)[0, inputs["input_ids"].shape[1]:]
+            outputs = model.generate(**inputs, max_new_tokens=20)[0, inputs["input_ids"].shape[1]:]
             true_output = tokenizer.decode(outputs, skip_special_tokens=True)
             
             print(inputs["input_ids"].shape[1])

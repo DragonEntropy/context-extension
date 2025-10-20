@@ -1,4 +1,4 @@
-transformers
+transformers=4.55.2
 torch
 fairscale
 fire
@@ -10,3 +10,4 @@ bitsandbytes
 llmcompressor
 fuzzywuzzy
 rouge
+evaluate

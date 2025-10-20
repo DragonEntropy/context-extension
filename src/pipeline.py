@@ -30,7 +30,7 @@ def main():
         evaluate(config)
     if "eval" in config["mode"]:
         if config["eval_config"]["perplexity_examples"]:
-            compute_perplexity()
+            compute_perplexity(config)
 
 
 if __name__ == "__main__":
