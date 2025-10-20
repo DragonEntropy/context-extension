@@ -52,12 +52,9 @@ class LlamaAttentionHybrid(LlamaAttentionALiBi):
 
             # past_key_values is a DynamicCache object, a subclass of the Cache object
             cache_offset = past_key_value.get_seq_length(self.layer_idx) - query_states.shape[-2]
-            print(cache_offset)
         
         query_len = query_states.shape[-2]
         key_len = key_states.shape[-2]
-        
-        print(f"After shapes: k: {key_states.shape}, q: {query_states.shape}")
 
         alibi = None
         attention_interface: Callable = eager_attention_forward
@@ -65,10 +62,15 @@ class LlamaAttentionHybrid(LlamaAttentionALiBi):
             # ALiBi application to attention
             # attention_interface = LlamaAttentionALiBi.alibi_attention_forward_sdpa
             alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len, offset=cache_offset).to(query_states.dtype)
-            print(f"Attention mask shape: {attention_mask.shape if attention_mask else None}, ALiBi shape: {alibi.shape}")
             attention_mask = attention_mask + alibi if attention_mask else alibi
         if self.config._attn_implementation != "eager":
             attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+
+        """
+        print(f"After shapes: k: {key_states.shape}, q: {query_states.shape}")
+        print(attention_mask)
+        print(f"Attention mask shape: {attention_mask.shape}, ALiBi shape: {alibi.shape}")
+        """
 
 
         attn_output, attn_weights = attention_interface(

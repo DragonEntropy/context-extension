@@ -16,8 +16,8 @@ def main():
     model_path = args.model
 
     base_config = LlamaConfig.from_pretrained(model_path)
-    config = LlamaHybridConfig(**base_config.to_dict())
-    model = LlamaHybridForCausalLM.from_pretrained(
+    config = LlamaALiBiConfig(**base_config.to_dict())
+    model = LlamaALiBiForCausalLM.from_pretrained(
         model_path,
         config=config,
         local_files_only=True,
@@ -52,7 +52,7 @@ def main():
                 line = input()
             print(f"Prompt length: {len(prompt.split(' '))}")
             inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-            outputs = model.generate(**inputs, max_new_tokens=20)[0, inputs["input_ids"].shape[1]:]
+            outputs = model.generate(**inputs, max_new_tokens=100)[0, inputs["input_ids"].shape[1]:]
             true_output = tokenizer.decode(outputs, skip_special_tokens=True)
             
             print(inputs["input_ids"].shape[1])
