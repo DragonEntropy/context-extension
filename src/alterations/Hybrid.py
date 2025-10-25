@@ -13,7 +13,7 @@ from alterations.ALiBi import LlamaAttentionALiBi, LlamaALiBiConfig
 
 class LlamaHybridConfig(LlamaALiBiConfig):
     def __init__(self, hybrid=True, **kwargs):
-        super().__init__(alibi=hybrid, **kwargs)
+        super().__init__(**kwargs)
         self.hybrid = hybrid
 
 
@@ -46,8 +46,7 @@ class LlamaAttentionHybrid(LlamaAttentionALiBi):
         # Cache offset need to correctly compute alibi
         cache_offset = 0
         if past_key_value is not None:
-            # sin and cos are specific to RoPE models; cache_position needed for the static cache
-            cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
+            cache_kwargs = {"cache_position": cache_position}
             key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
 
             # past_key_values is a DynamicCache object, a subclass of the Cache object
@@ -58,13 +57,14 @@ class LlamaAttentionHybrid(LlamaAttentionALiBi):
 
         alibi = None
         attention_interface: Callable = eager_attention_forward
-        if self.config.hybrid:
+        if self.config.alibi:
             # ALiBi application to attention
-            # attention_interface = LlamaAttentionALiBi.alibi_attention_forward_sdpa
-            alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len, offset=cache_offset).to(query_states.dtype)
-            attention_mask = attention_mask + alibi if attention_mask else alibi
+            do_causal = not (attention_mask is not None)
+            alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len, offset=cache_offset, causal_mask=do_causal).to(query_states.dtype)
         if self.config._attn_implementation != "eager":
             attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
+
+        # print(alibi.shape if alibi is not None else None, attention_mask.shape if attention_mask is not None else None)
 
         """
         print(f"After shapes: k: {key_states.shape}, q: {query_states.shape}")
@@ -72,13 +72,14 @@ class LlamaAttentionHybrid(LlamaAttentionALiBi):
         print(f"Attention mask shape: {attention_mask.shape}, ALiBi shape: {alibi.shape}")
         """
 
-
+        # This method eat a lot of VRAM: 2GB per size at 8192 context length
+        # By removing the batch_size dimension, torch attention re-performs the computation for each entry 
         attn_output, attn_weights = attention_interface(
             self,
             query_states,
             key_states,
             value_states,
-            attention_mask=attention_mask,
+            attention_mask=alibi if do_causal else attention_mask[:1] + alibi,
             dropout=0.0 if not self.training else self.attention_dropout,
             scaling=self.scaling,
             **kwargs

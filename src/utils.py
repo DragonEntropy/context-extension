@@ -9,6 +9,7 @@ from alterations.FractionalRoPE import LlamaFractionalRoPEForCausalLM, LlamaFrac
 from alterations.NoPE import LlamaNoPEForCausalLM, LlamaNoPEConfig
 from alterations.ALiBi import LlamaALiBiForCausalLM, LlamaALiBiConfig
 from alterations.Hybrid import LlamaHybridForCausalLM, LlamaHybridConfig
+from alterations.alternating import LlamaAlternatingForCausalLM, LlamaAlternatingConfig
 
 
 class TrainConfig(TypedDict):
@@ -33,7 +34,7 @@ class ModelConfig(TypedDict):
     model_path: str
     save_dir: str
     model_name: str
-    model_type: Literal["base", "linear", "yarn", "fractional", "nope", "alibi", "hybrid"]
+    model_type: Literal["base", "linear", "yarn", "fractional", "nope", "alibi", "hybrid", "alternating"]
     old_context_length: int
     new_context_length: int
     mode: Literal["train", "test", "eval", "train-test", "test-eval", "train-test-eval"]
@@ -167,6 +168,15 @@ def build_model(json_config: ModelConfig, tokeniser, is_eval: bool):
         config = LlamaHybridConfig(**base_config.to_dict())
         config.architectures = ["LlamaHybridForCausalLM"]
         model = LlamaHybridForCausalLM.from_pretrained(
+            model_path,
+            config=config,
+            torch_dtype=torch.bfloat16,
+            local_files_only=True
+        ).to(device)
+    elif model_type == "alternating":
+        config = LlamaAlternatingConfig(**base_config.to_dict())
+        config.architectures = ["LlamaAlternatingForCausalLM"]
+        model = LlamaAlternatingForCausalLM.from_pretrained(
             model_path,
             config=config,
             torch_dtype=torch.bfloat16,

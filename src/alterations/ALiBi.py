@@ -46,14 +46,18 @@ class LlamaAttentionALiBi(LlamaAttention):
 
         # Old probably slower: return torch.tensor(math.pow(2, - 8 * (i + 1) / num_heads) for i in range(num_heads))
 
-    def calculate_alibi(slopes, query_len, key_len, offset=0):
+    def calculate_alibi(slopes, query_len, key_len, offset=0, causal_mask=False):
         device = slopes.device
 
         # Slopes are scaled by relative distances of each token
         key_ids = torch.arange(key_len).unsqueeze(0).to(device)
         query_ids = torch.arange(query_len).unsqueeze(1).to(device)
         # 1 x m - n x 1 -> n x m
-        relative_ids = torch.where(key_ids <= query_ids + offset, 1.0 * (key_ids - query_ids - offset), - LlamaAttentionALiBi._NEG_INF)
+        relative_ids = torch.where(
+            key_ids <= query_ids + offset,
+            1.0 * (key_ids - query_ids - offset),
+            LlamaAttentionALiBi._NEG_INF if causal_mask else 0
+        )
         # relative_ids = torch.where(key_ids <= query_ids + offset, 0, LlamaAttentionALiBi._NEG_INF)
         """
         relative_ids looks something like this (-i: -infinity):
@@ -65,7 +69,15 @@ class LlamaAttentionALiBi(LlamaAttention):
         When query_len = 1, offset = k:
         -k  ...  0  -i
         """
-        alibi = (slopes.view(1, -1, 1, 1) * relative_ids.view(1, 1, query_len, key_len)).to(device, dtype=torch.bfloat16)
+
+        # More memory efficient calculation:
+        alibi = (slopes.view(1, -1, 1, 1) * relative_ids.view(1, 1, query_len, key_len)).expand(1, -1, -1, -1).to(device, dtype=torch.bfloat16)
+
+        """
+        Less memory efficient:
+        alibi = (slopes.view(1, -1, 1, 1) * relative_ids.view(1, 1, query_len, key_len)).expand(1, -1, -1, -1).to(device, dtype=torch.bfloat16)
+        1 x h x n x m * 1 x 1 x n x m -> (1 x h x n x m) ---expand--> (b x h x n x m)
+        """
         # print(f"Query length: {query_len}, Key length: {key_len}, ALiBi shape: {alibi.shape}")
         return alibi
     
@@ -116,6 +128,9 @@ class LlamaAttentionALiBi(LlamaAttention):
         key_states = self.k_proj(hidden_states).view(hidden_shape).transpose(1, 2)
         value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
 
+        batch_size = query_states.shape[0]
+        num_heads = query_states.shape[1]
+
         # Application of RoPE removed here!
 
         # Cache offset need to correctly compute alibi
@@ -134,9 +149,8 @@ class LlamaAttentionALiBi(LlamaAttention):
         attention_interface: Callable = eager_attention_forward
         if self.config.alibi:
             # ALiBi application to attention
-            # attention_interface = LlamaAttentionALiBi.alibi_attention_forward_sdpa
-            alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len, offset=cache_offset).to(query_states.dtype)
-            attention_mask = attention_mask + alibi if attention_mask is not None else alibi
+            do_causal = not (attention_mask is not None)
+            alibi = LlamaAttentionALiBi.calculate_alibi(self.slopes, query_len, key_len, offset=cache_offset, causal_mask=do_causal).to(query_states.dtype)
         if self.config._attn_implementation != "eager":
             attention_interface = ALL_ATTENTION_FUNCTIONS[self.config._attn_implementation]
 
@@ -146,13 +160,14 @@ class LlamaAttentionALiBi(LlamaAttention):
         print(f"Attention mask shape: {attention_mask.shape}, ALiBi shape: {alibi.shape}")
         """
 
-
+        # This method eat a lot of VRAM: 2GB per size at 8192 context length
+        # By removing the batch_size dimension, torch attention re-performs the computation for each entry 
         attn_output, attn_weights = attention_interface(
             self,
             query_states,
             key_states,
             value_states,
-            attention_mask=attention_mask,
+            attention_mask=alibi if do_causal else attention_mask[:1] + alibi,
             dropout=0.0 if not self.training else self.attention_dropout,
             scaling=self.scaling,
             **kwargs
