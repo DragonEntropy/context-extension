@@ -1,0 +1,14 @@
+{
+    "model_type": "alibi",
+    "save_dir": "models",
+    "model_path": "models/llama-2-7b-hf",
+    "model_name": "llama2-alibi-base",
+    "mode": "test-eval",
+    "train_config": {
+        "batch_size": 10
+    },
+    "eval_config": {
+        "max_per_dataset": 40,
+        "use_base_model": true
+    }
+}
