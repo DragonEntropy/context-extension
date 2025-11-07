@@ -43,25 +43,29 @@ The original Llama2 model can be deleted at this point
 
 ## Model running
 
+### Pipeline code (recommended over running individual components)
+Edit the json file at default file path ```config/pipeline_config.json``` to control outputs.
+See ```src/utils.py``` for json file format.
+Alternatively, can control the json file path with the -c flag
+```
+nohup python3 src/pipeline.py > output.log 2>&1 &
+```
+
 ### Finetuning
 ```
 nohup python3 src/finetune.py > logs/finetune_output.log 2>&1 &
-nohup python3 src/finetune.py -i 3200 -p models/llama-2-7b-hf -t yarn > logs/finetune_yarn_output.log 2>&1 &
 ```
 
-### Prediction
+### Prediction (LongBench)
 ```
-nohup python3 src/LongBench/LongBench/pred.py --model llama2-7b -l 40 > logs/eval_output.log 2>&1 &
-nohup python3 -m src.LongBench.LongBench.pred --model models/llama2-frac1 -l 40 -t fractional > logs/eval_output_fractional.log 2>&1 &
-```
-
-### Evaluation
-```
-python3 src/LongBench/LongBench/eval.py --model models/llama2-frac1
+nohup python3 src/pred.py > logs/pred_output.log 2>&1 &
 ```
 
-### Pipeline code
-nohup python3 src/pipeline.py > logs/pipeline_NRoPE.log 2>&1 &
+### Evaluation (perplexity)
+```
+python3 src/eval.py > logs/eval_output.log 2>&1 &
+```
+
 
 ## Other commands
 ### Launch model with vllm (for LongBenchv2):
@@ -70,22 +74,4 @@ vllm serve models/llama-2-7b-hf \
   --max-model-len 8192 \
   --gpu-memory-utilization 0.98 \
   --quantization bitsandbytes
-```
-
-## Info
-
-Longbench data entries follow the format:
-```
-json
-{
-    "_id": "Unique identifier for each piece of data",
-    "domain": "The primary domain category of the data",
-    "sub_domain": "The specific sub-domain category within the domain",
-    "difficulty": "The difficulty level of the task, either 'easy' or 'hard'",
-    "length": "The length category of the task, which can be 'short', 'medium', or 'long'",
-    "question": "The input/command for the task, usually short, such as questions in QA, queries in many-shot learning, etc",
-    "choice_A": "Option A", "choice_B": "Option B", "choice_C": "Option C", "choice_D": "Option D",
-    "answer": "The groundtruth answer, denoted as A, B, C, or D",
-    "context": "The long context required for the task, such as documents, books, code repositories, etc."
-}
 ```
